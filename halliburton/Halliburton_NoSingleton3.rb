@@ -1,4 +1,4 @@
-name 'Halliburton_University_Program_NO_Singleton-test'
+name 'Halliburton_University_Program_NO_Singleton'
 rs_ca_ver 20131202
 short_description 'CAT for Halliburton University Program'
 resource 'server', type: 'server' do
@@ -68,6 +68,7 @@ define start_server(@server) return @server do
 		@server.current_instance().start()
 		end
 	end
+	sleep_until(@server.state == "operational")
 end
 ​
 define get_rdp_link(@server) return $rdp_link, $server_ip do
@@ -103,7 +104,7 @@ define get_rdp_link(@server) return $rdp_link, $server_ip do
 	# now build the rdp link of the form: https://my.rightscale.com/acct/ACCOUNT_NUMBER/clouds/CLOUD_ID/instances/INSTANCE_LEGACY_ID/rdp
 	$rdp_link = "https://my.rightscale.com/acct/81843/clouds/"+$cloud_id+"/instances/"+$legacy_id+"/rdp"
 ​
-	$server_ip = to_s(@server.public_ip_address)
+	$server_ip = to_s(@server.public_ip_addresses[0])
 	#rs.audit_entries.create(notify: "None", audit_entry: { auditee_href: @server, summary: "rdp link", detail: $rdp_link})
 end
 ​
