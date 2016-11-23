@@ -75,7 +75,7 @@ define find_unattached_volumes($param_action) do
 
     #search the collection for only volumes with status = available
     @volumes_not_in_use = select(@all_volumes, { "status": "available" })
-    @@not_attached = select(@all_volumes, { "created_at": "available" })
+    #@@not_attached = select(@all_volumes, { "created_at": "available" })
 
     #TODO
     #For each volume check to see if it was recently created ( we don't want to include a recently created volume to the list of unattached volumes)
@@ -92,15 +92,17 @@ define find_unattached_volumes($param_action) do
     #if action = alert/delete
     if $param_action == "ALERT AND DELETE"
       foreach @volume in @volumes_not_in_use do
+        @volume.destroy()
+        #TODO
+        #For each volume check to see if it was recently created ( we don't want to include a recently created volume to the list of unattached volumes)
+        #use select to create a collection with older volumes
         #updated_at":"2014/04/30 22:25:24 +0000"}}
-        #check created_at
-        $time = now()
-        $api_time = strftime($time, "%Y/%m/%d %H:%M:%S +0000")
-
         $volume_href = @volume.href
-        #
-        #rs.cm.volumes.delete($volume_href)
-        #
+        #$time = now()
+        #$api_time = strftime($time, "%Y/%m/%d %H:%M:%S +0000")
+      #  @vol = rs_cm.get(href:"$volume_href")
+        #@vol.destroy()
+
       end
     end
 
@@ -110,7 +112,7 @@ end
 
 
 define send_email_mailgun($to) do
-  $mailgun_endpoint = "https://api:key-fa2de8fb14368260a3d9e308b42e8feb@api.mailgun.net/v3/services.rightscale.com/messages"
+  $mailgun_endpoint = "http://174.129.76.224/v3/services.rightscale.com/messages"
 
      $to = gsub($to,"@","%40")
      $subject = "Volume Policy Report"
