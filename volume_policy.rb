@@ -1,4 +1,5 @@
 
+
 name 'VolumeFinder'
 rs_ca_ver 20160622
 short_description "Finds unattached volumes"
@@ -35,44 +36,87 @@ parameter "param_action" do
   category "Volume"
   label "Volume Action"
   type "string"
-  allowed_values "DRY-RUN","ALERT", "ALERT AND DELETE"
-  default "DRY-RUN"
+  allowed_values "ALERT", "ALERT AND DELETE"
+  default "ALERT"
 end
 
 parameter "param_email" do
-  category "Email"
-  label "email"
+  category "Contact"
+  label "email address (reports are sent to this address)"
   type "string"
-  default "edwin@rightscale.com"
 end
 
 
-define find_unattached_volumes() do
+##################
+# Operations     #
+##################
+
+operation "launch" do
+  description "Find unattached volumes"
+  definition "launch"
+end
+
+
+##################
+# Definitions    #
+##################
+
+define launch($param_email,$param_action) return $param_email,$param_action do
+        call find_unattached_volumes($param_action)
+        sleep(20)
+        call send_email_mailgun($param_email)
+end
+
+
+define find_unattached_volumes($param_action) do
 
     #get all volumes
-    @@all_volumes = rs_cm.volumes.index()
+    @all_volumes = rs_cm.volumes.index()
 
     #search the collection for only volumes with status = available
-    @@volumes_not_in_use = select(@@all_volumes, { "status": "available" })
+    @volumes_not_in_use = select(@all_volumes, { "status": "available" })
+    @@not_attached = select(@all_volumes, { "created_at": "available" })
 
     #TODO
     #For each volume check to see if it was recently created ( we don't want to include a recently created volume to the list of unattached volumes)
-    $$size=size(@@volumes_not_in_use)
+    #use select to create a collection with older volumes
 
+    #Percent-encoding the collection  https://en.wikipedia.org/wiki/Percent-encoding
+    $list_of_volumes=to_s(@volumes_not_in_use)
+    $list_of_volumes = gsub($list_of_volumes,"rs_cm.volumes:","")
+    $list_of_volumes = gsub($list_of_volumes,",","%2C%0D")
+    $list_of_volumes = gsub($list_of_volumes,"/","%2F")
+    insert($list_of_volumes, 0, "The following unattached volumes were found:%0D ")
+    $$email_text = $list_of_volumes
+
+    #if action = alert/delete
+    if $param_action == "ALERT AND DELETE"
+      foreach @volume in @volumes_not_in_use do
+        #updated_at":"2014/04/30 22:25:24 +0000"}}
+        #check created_at
+        $time = now()
+        $api_time = strftime($time, "%Y/%m/%d %H:%M:%S +0000")
+
+        $volume_href = @volume.href
+        #
+        #rs.cm.volumes.delete($volume_href)
+        #
+      end
+    end
+
+    #TODO
+    #For each volume check to see if it was recently created ( we don't want to include a recently created volume to the list of unattached volumes)
 end
 
 
-define send_email_mailgun($to,$volumes) do
+define send_email_mailgun($to) do
   $mailgun_endpoint = "https://api:key-fa2de8fb14368260a3d9e308b42e8feb@api.mailgun.net/v3/services.rightscale.com/messages"
 
+     $to = gsub($to,"@","%40")
+     $subject = "Volume Policy Report"
+     $text = "You have the following unattached volumes"
 
-     $from = "policy-cat@services.rightscale.com"
-     $to = "edwin@rightscale.com"
-     $subject = "Policy Report"
-     $text = "You have the following volumes unattached"
-
-
- $post_body="from=policy-cat%40services.rightscale.com&to=edwin%40rightscale.com&subject=Policy+Report&text=You+have+the+following+volumes+unattached"
+     $post_body="from=policy-cat%40services.rightscale.com&to=" + $to + "&subject=Policy+Report&text=" + $$email_text
 
 
   $$response = http_post(
