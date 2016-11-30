@@ -47,7 +47,7 @@ parameter "param_email" do
 end
 
 parameter "param_days_old" do
-  category "Volume Action"
+  category "Volume"
   label "delete volumes that are these many days old"
   allowed_values "1", "7", "30"
   type "number"
