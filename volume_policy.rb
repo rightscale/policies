@@ -92,7 +92,7 @@ define find_unattached_volumes($param_action) do
     call find_account_number() retrieve $account_number
     call find_shard() retrieve $shard_number
     $url = "https://us-" + $shard_number +".rightscale.com/acct/" + $account_number
-    $list_of_volumes = gsub($list_of_volumes,"/api",$url)
+    $list_of_volumes = gsub($list_of_volumes,"api",$url)
 
 
 
@@ -107,11 +107,24 @@ define find_unattached_volumes($param_action) do
         #For each volume check to see if it was recently created ( we don't want to include a recently created volume to the list of unattached volumes)
         #use select to create a collection with older volumes
         #updated_at":"2014/04/30 22:25:24 +0000"}}
-        $volume_href = @volume.href
-        #$time = now()
-        #$api_time = strftime($time, "%Y/%m/%d %H:%M:%S +0000")
-      #  @vol = rs_cm.get(href:"$volume_href")
-        #@vol.destroy()
+
+        #/60/60/24
+        $$curr_time = now()
+        #$$day_old = now() - (60*60*24)
+
+        #convert string to datetime to compare datetime
+        $$volume_created_at = to_d(@volume.updated_at)
+
+        #the difference between dates
+        $$difference = $$curr_time - $$volume_created_at
+
+        #convert the difference to days
+        $$how_old= $$difference /60/60/24
+
+        $$days = 1
+        if $$days > $$how_old
+          $$DELETE_VOLUMES="YES"
+        end
 
       end
     end
