@@ -23,6 +23,29 @@ short_description "Finds long running instances"
 #
 
 
+##################
+# User inputs    #
+##################
+parameter "param_action" do
+  category "Instance"
+  label "Instance Action"
+  type "string"
+  allowed_values "ALERT", "ALERT AND TERMINATE"
+  default "ALERT"
+end
+
+parameter "param_email" do
+  category "Contact"
+  label "email address (reports are sent to this address)"
+  type "string"
+end
+
+parameter "param_days_old" do
+  category "Instance"
+  label "Terminate instances that have been running longer than this number of days:"
+  allowed_values "1", "7", "30"
+  type "number"
+end
 
 
 
@@ -37,11 +60,11 @@ end
 ##################
 
 define launch($param_email,$param_action,$param_days_old) return $param_email,$param_action,$param_days_old do
-        find_long_running_instances()
+        call find_long_running_instances($param_days_old)
 end
 
 
-define find_long_running_instances() do
+define find_long_running_instances($param_days_old) do
 
   #get all instances
   @@all_instances = rs_cm.instances.index()
@@ -60,8 +83,8 @@ define find_long_running_instances() do
       #convert the difference to days
       $$how_old = $$difference /60/60/24
 
-      if $trigger < $$how_old do
-          @instance.destroy()
+      if $param_days_old < $$how_old do
+          @instance.terminate()
         end
 
 
