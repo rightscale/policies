@@ -81,11 +81,15 @@ define find_unattached_volumes($param_action) do
     #For each volume check to see if it was recently created ( we don't want to include a recently created volume to the list of unattached volumes)
     #use select to create a collection with older volumes
 
+    #format email output with links to the volumes , not useful if they are deleted.
+    #https://us-4.rightscale.com/acct/58242/clouds/1/volumes/207011592004
+
     #Percent-encoding the collection  https://en.wikipedia.org/wiki/Percent-encoding
     $list_of_volumes=to_s(@volumes_not_in_use)
     $list_of_volumes = gsub($list_of_volumes,"rs_cm.volumes:","")
     $list_of_volumes = gsub($list_of_volumes,",","%2C%0D")
     $list_of_volumes = gsub($list_of_volumes,"/","%2F")
+    
     insert($list_of_volumes, 0, "The following unattached volumes were found:%0D ")
     $$email_text = $list_of_volumes
 
