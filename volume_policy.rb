@@ -121,10 +121,11 @@ define find_unattached_volumes($param_action) do
         $$difference = $$curr_time - $$volume_created_at
 
         #convert the difference to days
-        $$how_old= $$difference /60/60/24
+        $$how_old = $$difference /60/60/24
 
         if $param_days_old < $$how_old
           @volume.destroy()
+          insert($list_of_volumes, 0, "Found old volume ")
         end
 
       end
