@@ -89,7 +89,13 @@ define find_unattached_volumes($param_action) do
     $list_of_volumes = gsub($list_of_volumes,"rs_cm.volumes:","")
     $list_of_volumes = gsub($list_of_volumes,",","%2C%0D")
     $list_of_volumes = gsub($list_of_volumes,"/","%2F")
-    
+    call find_account_number() retrieve $account_number
+    call find_shard() retrieve $shard_number
+    $url = "https://us-" + $shard_number +".rightscale.com/acct/" + $account_number
+    $list_of_volumes = gsub($list_of_volumes,"/api",$url)
+
+
+
     insert($list_of_volumes, 0, "The following unattached volumes were found:%0D ")
     $$email_text = $list_of_volumes
 
@@ -130,4 +136,18 @@ define send_email_mailgun($to) do
      headers: { "content-type": "application/x-www-form-urlencoded"},
      body: $post_body
     )
+end
+
+
+# Returns the RightScale account number in which the CAT was launched.
+define find_account_number() return $account_id do
+  $session = rs_cm.sessions.index(view: "whoami")
+  $account_id = last(split(select($session[0]["links"], {"rel":"account"})[0]["href"],"/"))
+end
+
+# Returns the RightScale shard for the account the given CAT is launched in.
+define find_shard() return $shard_number do
+  call find_account_number() retrieve $account_number
+  $account = rs_cm.get(href: "/api/accounts/" + $account_number)
+  $shard_number = last(split(select($account[0]["links"], {"rel":"cluster"})[0]["href"],"/"))
 end
