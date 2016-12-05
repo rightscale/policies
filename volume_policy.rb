@@ -51,6 +51,7 @@ parameter "param_days_old" do
   label "delete volumes that are these many days old"
   allowed_values "1", "7", "30"
   type "number"
+  default "30"
 end
 
 
@@ -84,30 +85,8 @@ define find_unattached_volumes($param_action) do
     @volumes_not_in_use = select(@all_volumes, { "status": "available" })
     #@@not_attached = select(@all_volumes, { "created_at": "available" })
 
-    #TODO
-    #For each volume check to see if it was recently created ( we don't want to include a recently created volume to the list of unattached volumes)
-    #use select to create a collection with older volumes
+    $list_of_volumes=""
 
-    #format email output with links to the volumes , not useful if they are deleted.
-    #https://us-4.rightscale.com/acct/58242/clouds/1/volumes/207011592004
-
-    #Percent-encoding the collection  https://en.wikipedia.org/wiki/Percent-encoding
-    $list_of_volumes=to_s(@volumes_not_in_use)
-    $list_of_volumes = gsub($list_of_volumes,"rs_cm.volumes:","")
-    $list_of_volumes = gsub($list_of_volumes,",","%2C%0D")
-    $list_of_volumes = gsub($list_of_volumes,"/","%2F")
-    call find_account_number() retrieve $account_number
-    call find_shard() retrieve $shard_number
-    $url = "https://us-" + $shard_number +".rightscale.com/acct/" + $account_number
-    $list_of_volumes = gsub($list_of_volumes,"api",$url)
-
-
-
-    insert($list_of_volumes, 0, "The following unattached volumes were found:%0D ")
-    $$email_text = $list_of_volumes
-
-    #if action = alert/delete
-    if $param_action == "ALERT AND DELETE"
       foreach @volume in @volumes_not_in_use do
 
         #/60/60/24
@@ -122,14 +101,22 @@ define find_unattached_volumes($param_action) do
 
         #convert the difference to days
         $$how_old = $$difference /60/60/24
-
         if $param_days_old < $$how_old
-          @volume.destroy()
-          insert($list_of_volumes, 0, "Found old volume ")
+          $volume_name = @volume.name + "%0D"
+          insert($list_of_volumes, -1, $volume_name)
+
+            #here we decide if we should delete the volume
+            if $param_action == "ALERT AND DELETE"
+              insert($list_of_volumes, 0, "The following unattached volumes were found and deleted:%0D ")
+              @volume.destroy()
+            else
+              insert($list_of_volumes, 0, "The following unattached volumes were found:%0D ")
+            end
         end
 
       end
-    end
+          $$email_text = $list_of_volumes
+
 end
 
 

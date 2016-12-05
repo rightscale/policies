@@ -82,9 +82,10 @@ define find_long_running_instances($param_days_old) do
 
       #convert the difference to days
       $$how_old = $$difference /60/60/24
-
-      if $param_days_old < $$how_old do
-          @instance.terminate()
+      $list_of_instances=""
+      if $param_days_old < $$how_old
+          #@instance.terminate()
+          insert($list_of_instances, 0, @instance.href)
         end
 
 
