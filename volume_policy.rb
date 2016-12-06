@@ -94,20 +94,20 @@ define find_unattached_volumes($param_action) do
         insert($list_of_volumes, 0, "The following unattached volumes were found:%0D ")
       end
 
+      #/60/60/24
+      $curr_time = now()
+      #$$day_old = now() - (60*60*24)
+
       foreach @volume in @volumes_not_in_use do
 
-        #/60/60/24
-        $$curr_time = now()
-        #$$day_old = now() - (60*60*24)
-
         #convert string to datetime to compare datetime
-        $$volume_created_at = to_d(@volume.updated_at)
+        $volume_created_at = to_d(@volume.updated_at)
 
         #the difference between dates
-        $$difference = $$curr_time - $$volume_created_at
+        $difference = $curr_time - $volume_created_at
 
         #convert the difference to days
-        $$how_old = $$difference /60/60/24
+        $how_old = $difference /60/60/24
 
 
         #check for Azure specific images that report as "available" but should not
@@ -116,7 +116,7 @@ define find_unattached_volumes($param_action) do
           #do nothing.
 
         #check the age of the volume
-        elsif $param_days_old < $$how_old
+        elsif $param_days_old < $how_old
           $volume_name = @volume.name + "%0D"
           insert($list_of_volumes, -1, $volume_name)
 
