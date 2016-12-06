@@ -66,6 +66,10 @@ end
 
 define find_long_running_instances($param_days_old) do
 
+  #/60/60/24
+  $$curr_time = now()
+  #$$day_old = now() - (60*60*24)
+
   #get all instances
   @@all_instances = rs_cm.instances.index()
   foreach @instance in @@all_instances do
@@ -82,10 +86,12 @@ define find_long_running_instances($param_days_old) do
 
       #convert the difference to days
       $$how_old = $$difference /60/60/24
-      $list_of_instances=""
+      $$list_of_instances=""
+      $location=0
       if $param_days_old < $$how_old
           #@instance.terminate()
-          insert($list_of_instances, 0, @instance.href)
+          insert($$list_of_instances, $location, @instance.href)
+          $localtion=$localtion+1
         end
 
 
