@@ -112,7 +112,7 @@ define find_unattached_volumes($param_action) do
 
         #check for Azure specific images that report as "available" but should not
         #be reported on or deleted.
-        if @volume.resource_uid =~ "rsimages@system@Microsoft.Compute/Images/vhds"
+        if @volume.resource_uid =~ "@system@Microsoft.Compute/Images/vhds"
           #do nothing.
 
         #check the age of the volume
