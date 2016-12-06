@@ -87,6 +87,13 @@ define find_unattached_volumes($param_action) do
 
     $list_of_volumes=""
 
+      #refactor.
+      if $param_action == "ALERT AND DELETE"
+        insert($list_of_volumes, 0, "The following unattached volumes were found and deleted:%0D ")
+      else
+        insert($list_of_volumes, 0, "The following unattached volumes were found:%0D ")
+      end
+
       foreach @volume in @volumes_not_in_use do
 
         #/60/60/24
@@ -101,16 +108,21 @@ define find_unattached_volumes($param_action) do
 
         #convert the difference to days
         $$how_old = $$difference /60/60/24
-        if $param_days_old < $$how_old
+
+
+        #check for Azure specific images that report as "available" but should not
+        #be reported on or deleted.
+        if @volume.resource_uid =~ "rsimages@system@Microsoft.Compute/Images/vhds"
+          #do nothing.
+
+        #check the age of the volume
+        elsif $param_days_old < $$how_old
           $volume_name = @volume.name + "%0D"
           insert($list_of_volumes, -1, $volume_name)
 
             #here we decide if we should delete the volume
             if $param_action == "ALERT AND DELETE"
-              insert($list_of_volumes, 0, "The following unattached volumes were found and deleted:%0D ")
               @volume.destroy()
-            else
-              insert($list_of_volumes, 0, "The following unattached volumes were found:%0D ")
             end
         end
 
@@ -124,10 +136,8 @@ define send_email_mailgun($to) do
   $mailgun_endpoint = "http://174.129.76.224/v3/services.rightscale.com/messages"
 
      $to = gsub($to,"@","%40")
-     $subject = "Volume Policy Report"
-     $text = "You have the following unattached volumes"
 
-     $post_body="from=policy-cat%40services.rightscale.com&to=" + $to + "&subject=Policy+Report&text=" + $$email_text
+     $post_body="from=policy-cat%40services.rightscale.com&to=" + $to + "&subject=Volume+Policy+Report&text=" + $$email_text
 
 
   $$response = http_post(
