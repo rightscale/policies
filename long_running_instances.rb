@@ -30,7 +30,8 @@ parameter "param_action" do
   category "Instance"
   label "Instance Action"
   type "string"
-  allowed_values "ALERT", "ALERT AND TERMINATE"
+  allowed_values "ALERT"
+  #allowed_values "ALERT", "ALERT AND TERMINATE"
   default "ALERT"
 end
 
@@ -38,11 +39,12 @@ parameter "param_email" do
   category "Contact"
   label "email address (reports are sent to this address)"
   type "string"
+
 end
 
 parameter "param_days_old" do
   category "Instance"
-  label "Terminate instances that have been running longer than this number of days:"
+  label "Report on instances that have been running longer than this number of days:"
   allowed_values "1", "7", "30"
   type "number"
 end
@@ -61,81 +63,50 @@ end
 
 define launch($param_email,$param_action,$param_days_old) return $param_email,$param_action,$param_days_old do
         call find_long_running_instances($param_days_old)
+        sleep(20)
+        call send_email_mailgun($param_email)
 end
 
 
 define find_long_running_instances($param_days_old) do
 
-  #/60/60/24
-  $$curr_time = now()
-  #$$day_old = now() - (60*60*24)
+    @all_instances = rs_cm.instances.index(filter:["state==operational"])
+    $list_of_instances="The following instance have been found: %0D"
 
-  #get all instances
-  @@all_instances = rs_cm.instances.index()
-  foreach @instance in @@all_instances do
+    #/60/60/24
+    $curr_time = now()
+    #$$day_old = now() - (60*60*24)
 
-      #/60/60/24
-      $$curr_time = now()
-      #$$day_old = now() - (60*60*24)
+    foreach @instance in @all_instances do
 
       #convert string to datetime to compare datetime
-      $$volume_created_at = to_d(@instance.created_at)
+      $volume_created_at = to_d(@instance.created_at)
 
       #the difference between dates
-      $$difference = $$curr_time - $$volume_created_at
+      $difference = $curr_time - $volume_created_at
 
       #convert the difference to days
-      $$how_old = $$difference /60/60/24
-      $$list_of_instances=""
-      $location=0
-      if $param_days_old < $$how_old
-          #@instance.terminate()
-          insert($$list_of_instances, $location, @instance.href)
-          $localtion=$localtion+1
-        end
+      $how_old = $difference /60/60/24
 
+    	if $param_days_old < $how_old
+     call find_shard() retrieve $shard_number
+     call find_account_number() retrieve $account_id
 
-  #       define find_instances() do
-  #
-  # @@all_instances = rs_cm.instances.index(state: "operational")
-  #
-  # $$list_of_instances="hello"
-  #
-  # foreach @instance in @@all_instances do
-  #
-  #     #/60/60/24
-  #     $$curr_time = now()
-  #     #$$day_old = now() - (60*60*24)
-  #
-  #     #convert string to datetime to compare datetime
-  #     $$volume_created_at = to_d(@instance.created_at)
-  #
-  #     #the difference between dates
-  #     $$difference = $$curr_time - $$volume_created_at
-  #
-  #     #convert the difference to days
-  #     $$how_old = $$difference /60/60/24
-  #
-  #   $param_days_old = 1
-  #     if $param_days_old < $$how_old
-  #       $instance_name = @instance.name + "%0D"
-  #       insert($$list_of_instances, -1, $instance_name)
-  #         
-  #     end
+     call get_server_access_link(@instance.href, $shard_number, $account_id) retrieve $server_access_link_root
+    $instance_name = @instance.name + $server_access_link_root +"%0D"
+    #$instance_name = @instance.name + @instance.href + "%0D"
 
-
-  end
+   		insert($list_of_instances, -1, $instance_name)
+      end
+    end
+    $$email_text = $list_of_instances
 end
 
 
-  end
 
 
-  end
-
-
-  define send_email_mailgun($to) do
-    $mailgun_endpoint = "http://174.129.76.224/v3/services.rightscale.com/messages"
+define send_email_mailgun($to) do
+    $mailgun_endpoint = "http://smtp.services.rightscale.com/v3/services.rightscale.com/messages"
 
        $to = gsub($to,"@","%40")
        $subject = "Long Running Instances Report"
@@ -152,15 +123,37 @@ end
   end
 
 
-  # Returns the RightScale account number in which the CAT was launched.
-  define find_account_number() return $account_id do
-    $session = rs_cm.sessions.index(view: "whoami")
-    $account_id = last(split(select($session[0]["links"], {"rel":"account"})[0]["href"],"/"))
+  define get_server_access_link($instance_href, $shard, $account_number) return $server_access_link_root do
+
+      $rs_endpoint = "https://us-"+$shard+".rightscale.com"
+
+
+      $response = http_get(
+        url: $rs_endpoint+"/api/instances",
+        headers: {
+        "X-Api-Version": "1.6",
+        "X-Account": $account_number
+        }
+       )
+
+      $instances = $response["body"]
+      $instance_of_interest = select($instances, { "href" : $instance_href })[0]
+      $legacy_id = $instance_of_interest["legacy_id"]
+      $cloud_id = $instance_of_interest["links"]["cloud"]["id"]
+      $server_access_link_root = "https://my.rightscale.com/acct/"+$account_number+"/clouds/"+$cloud_id+"/instances/"+$legacy_id
   end
 
+
+
+  # Returns the RightScale account number in which the CAT was launched.
+define find_account_number() return $account_id do
+    $session = rs_cm.sessions.index(view: "whoami")
+    $account_id = last(split(select($session[0]["links"], {"rel":"account"})[0]["href"],"/"))
+end
+
   # Returns the RightScale shard for the account the given CAT is launched in.
-  define find_shard() return $shard_number do
+define find_shard() return $shard_number do
     call find_account_number() retrieve $account_number
     $account = rs_cm.get(href: "/api/accounts/" + $account_number)
     $shard_number = last(split(select($account[0]["links"], {"rel":"cluster"})[0]["href"],"/"))
-  end
+end
