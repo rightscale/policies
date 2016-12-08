@@ -95,6 +95,39 @@ define find_long_running_instances($param_days_old) do
         end
 
 
+  #       define find_instances() do
+  #
+  # @@all_instances = rs_cm.instances.index(state: "operational")
+  #
+  # $$list_of_instances="hello"
+  #
+  # foreach @instance in @@all_instances do
+  #
+  #     #/60/60/24
+  #     $$curr_time = now()
+  #     #$$day_old = now() - (60*60*24)
+  #
+  #     #convert string to datetime to compare datetime
+  #     $$volume_created_at = to_d(@instance.created_at)
+  #
+  #     #the difference between dates
+  #     $$difference = $$curr_time - $$volume_created_at
+  #
+  #     #convert the difference to days
+  #     $$how_old = $$difference /60/60/24
+  #
+  #   $param_days_old = 1
+  #     if $param_days_old < $$how_old
+  #       $instance_name = @instance.name + "%0D"
+  #       insert($$list_of_instances, -1, $instance_name)
+  #         
+  #     end
+
+
+  end
+end
+
+
   end
 
 
