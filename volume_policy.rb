@@ -79,7 +79,7 @@ end
 define find_unattached_volumes($param_action) do
 
     #get all volumes
-    @all_volumes = rs_cm.volumes.index(view: "tiny")
+    @all_volumes = rs_cm.volumes.index(view: "default")
 
     #search the collection for only volumes with status = available
     @volumes_not_in_use = select(@all_volumes, { "status": "available" })
@@ -117,7 +117,7 @@ define find_unattached_volumes($param_action) do
 
         #check the age of the volume
         elsif $param_days_old < $how_old
-          $volume_name = @volume.name + "%0D"
+          $volume_name = @volume.name
             #here we decide if we should delete the volume
             if $param_action == "ALERT AND DELETE"
               sub task_name: "Delete Volume" do
@@ -127,7 +127,8 @@ define find_unattached_volumes($param_action) do
                 end
               end
             end
-            $volume_name = @volume.name + $$error_msg + "%0D"
+
+            $volume_name = $volume_name + $$error_msg + "%0D"
             insert($list_of_volumes, -1, $volume_name)
         end
 
@@ -137,12 +138,14 @@ define find_unattached_volumes($param_action) do
 end
 
 define handle_error() do
-  $$error_msg = $_error["message"]
+  #error_msg has the response from the api , use that as the error in the email.
+  #$$error_msg = $_error["message"]
+  $$error_msg = " failed to delete"
   $_error_behavior = "skip"
 end
 
 define send_email_mailgun($to) do
-  $mailgun_endpoint = "http://174.129.76.224/v3/services.rightscale.com/messages"
+  $mailgun_endpoint = "http://smtp.services.rightscale.com/v3/services.rightscale.com/messages"
 
      $to = gsub($to,"@","%40")
 
