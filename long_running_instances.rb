@@ -93,7 +93,7 @@ define find_long_running_instances($param_days_old) do
      call find_account_number() retrieve $account_id
 
      call get_server_access_link(@instance.href, $shard_number, $account_id) retrieve $server_access_link_root
-    $instance_name = @instance.name + $server_access_link_root +"%0D"
+    $instance_name = @instance.name + "  " + $server_access_link_root +"%0D"
     #$instance_name = @instance.name + @instance.href + "%0D"
 
    		insert($list_of_instances, -1, $instance_name)
