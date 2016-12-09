@@ -222,7 +222,7 @@ define send_email_mailgun($to) do
 
      $to = gsub($to,"@","%40")
 
-     $post_body="from=policy-cat%40services.rightscale.com&to=" + $to + "&subject=Volume+Policy+Report&text=" + $$email_text
+     $post_body="from=policy-cat%40services.rightscale.com&to=" + $to + "&subject=Volume+Policy+Report&html=" + $$email_text
 
 
   $$response = http_post(
