@@ -48,7 +48,7 @@ end
 
 parameter "param_days_old" do
   category "Volume"
-  label "delete volumes that are these many days old"
+  label "report on volumes that are these many days old"
   allowed_values "1", "7", "30"
   type "number"
   default "30"
