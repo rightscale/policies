@@ -82,7 +82,14 @@ define find_unattached_volumes($param_action) do
 
     #search the collection for only volumes with status = available
     @volumes_not_in_use = select(@all_volumes, { "status": "available" })
-    #@@not_attached = select(@all_volumes, { "created_at": "available" })
+
+    #refactor.
+    if $param_action == "Alert and Delete"
+    $email_msg = "RightScale discovered the following unattached volumes. These volumes are incurring cloud charges and should be deleted if they are no longer being used."
+    else
+    $email_msg = "RightScale discovered the following unattached volumes. Per the policy set by your organization, these volumes have been deleted and are no longer accessible"
+    end
+
 
     $header="\<\!DOCTYPE html PUBLIC \"-\/\/W3C\/\/DTD XHTML 1.0 Transitional\/\/EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\"\>
     <html xmlns=\"http:\/\/www.w3.org\/1999\/xhtml\">
@@ -103,7 +110,7 @@ define find_unattached_volumes($param_action) do
                                   <table border=%220%22 cellpadding=%2220%22 cellspacing=%220%22 width=%22100%%22 id=%22emailHeader%22>
                                       <tr>
                                           <td align=%22left%22 valign=%22top%22>
-                                              We found the following unattached volumes
+                                             " + $email_msg + "
                                           </td>
 
                                       </tr>
@@ -134,12 +141,6 @@ define find_unattached_volumes($param_action) do
       $list_of_volumes=""
       $table_start="<td align=%22left%22 valign=%22top%22>"
       $table_end="</td>"
-      #refactor.
-      if $param_action == "Alert and Delete"
-      $email_msg = "RightScale discovered the following unattached volumes. These volumes are incurring cloud charges and should be deleted if they are no longer being used."
-      else
-      $email_msg = "RightScale discovered the following unattached volumes. Per the policy set by your organization, these volumes have been deleted and are no longer accessible"
-      end
 
       #/60/60/24
       $curr_time = now()
