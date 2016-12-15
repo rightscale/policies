@@ -129,7 +129,7 @@ define send_email_mailgun($to) do
 
 
       $response = http_get(
-        url: $rs_endpoint+"/api/instances",
+        url: $rs_endpoint+"/api/instances?view=tiny",
         headers: {
         "X-Api-Version": "1.6",
         "X-Account": $account_number
