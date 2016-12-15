@@ -42,14 +42,13 @@ end
 
 parameter "param_email" do
   category "Contact"
-  label "email address (reports are sent to this address)"
+  label "Email addresses (separate with commas)"
   type "string"
 end
 
 parameter "param_days_old" do
-  category "Volume"
-  label "Report on volumes that are these many days old"
-  allowed_values "1", "7", "30"
+  category "Unattached Volumes"
+  label "Include volumes with minimum days unattached of"
   type "number"
   default "30"
 end
@@ -174,7 +173,7 @@ define find_unattached_volumes($param_action) do
           @cloud = rs_cm.get(href: $cloud_href)
           $cloud_name = @cloud.name
 
-          $volume_id   = @volume.resource_uid
+          $volume_id  = @volume.resource_uid
             #here we decide if we should delete the volume
             if $param_action == "Alert and Delete"
               sub task_name: "Delete Volume" do
