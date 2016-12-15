@@ -2,7 +2,7 @@
 
 name 'Unattached Volume Policy'
 rs_ca_ver 20160622
-short_description "This automated policy CAT will find unattached volumes, send alerts, and optionally delete them. "
+short_description "This automated policy CAT will find unattached volumes, send alerts, and optionally delete them."
 
 #Copyright 2016 RightScale
 #
@@ -85,9 +85,9 @@ define find_unattached_volumes($param_action) do
 
     #refactor.
     if $param_action == "Alert and Delete"
-    $email_msg = "RightScale discovered the following unattached volumes. These volumes are incurring cloud charges and should be deleted if they are no longer being used."
+      $email_msg = "RightScale discovered the following unattached volumes. Per the policy set by your organization, these volumes have been deleted and are no longer accessible"
     else
-    $email_msg = "RightScale discovered the following unattached volumes. Per the policy set by your organization, these volumes have been deleted and are no longer accessible"
+      $email_msg = "RightScale discovered the following unattached volumes. These volumes are incurring cloud charges and should be deleted if they are no longer being used."
     end
 
 
@@ -213,7 +213,7 @@ define find_unattached_volumes($param_action) do
 </body>
 </html>
 "
-          $$email_text = $header + $list_of_volumes + $footer
+          $$email_body = $header + $list_of_volumes + $footer
 
 
 end
@@ -230,7 +230,7 @@ define send_email_mailgun($to) do
 
      $to = gsub($to,"@","%40")
 
-     $post_body="from=policy-cat%40services.rightscale.com&to=" + $to + "&subject=Volume+Policy+Report&html=" + $$email_text
+     $post_body="from=policy-cat%40services.rightscale.com&to=" + $to + "&subject=Volume+Policy+Report&html=" + $$email_body
 
 
   $$response = http_post(
