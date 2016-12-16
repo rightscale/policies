@@ -170,9 +170,7 @@ define find_unattached_volumes($param_action) do
           $volume_href = @volume.href
 
           #get cloud name
-          $cloud_href = join(split($volume_href, "/")[0..2], "/") # not sure if 0..2 or 0..3 or whatever
-          @cloud = rs_cm.get(href: $cloud_href)
-          $cloud_name = @cloud.name
+          $cloud_name = @volume.cloud().name
 
           $volume_id  = @volume.resource_uid
             #here we decide if we should delete the volume

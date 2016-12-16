@@ -139,7 +139,6 @@ define send_email_mailgun($to) do
        $instances = $response["body"]
        $instance_of_interest = select($instances, { "href" : $instance_href })[0]
        $legacy_id = $instance_of_interest["legacy_id"]
-       $cloud_id = $instance_of_interest["links"]["cloud"]["id"]
        $data = split($instance_href, "/")
        $cloud_id = $data[3]
        $server_access_link_root = "https://my.rightscale.com/acct/"+$account_number+"/clouds/"+$cloud_id+"/instances/"+$legacy_id
