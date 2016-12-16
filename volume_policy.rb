@@ -83,11 +83,13 @@ define find_unattached_volumes($param_action) do
     #search the collection for only volumes with status = available
     @volumes_not_in_use = select(@all_volumes, { "status": "available" })
 
+    #get account id to include in the email.
+    call find_account_name() retrieve $account_name
     #refactor.
     if $param_action == "Alert and Delete"
-      $email_msg = "RightScale discovered the following unattached volumes. Per the policy set by your organization, these volumes have been deleted and are no longer accessible"
+      $email_msg = "RightScale discovered the following unattached volumes in "+ $account_name +". Per the policy set by your organization, these volumes have been deleted and are no longer accessible"
     else
-      $email_msg = "RightScale discovered the following unattached volumes. These volumes are incurring cloud charges and should be deleted if they are no longer being used."
+      $email_msg = "RightScale discovered the following unattached volumes in "+ $account_name +". These volumes are incurring cloud charges and should be deleted if they are no longer being used."
     end
 
 
@@ -226,14 +228,20 @@ end
 define send_email_mailgun($to) do
   $mailgun_endpoint = "http://smtp.services.rightscale.com/v3/services.rightscale.com/messages"
 
-     $to = gsub($to,"@","%40")
+   $to = gsub($to,"@","%40")
+   $post_body="from=policy-cat%40services.rightscale.com&to=" + $to + "&subject=Volume+Policy+Report&html=" + $$email_body
 
-     $post_body="from=policy-cat%40services.rightscale.com&to=" + $to + "&subject=Volume+Policy+Report&html=" + $$email_body
-
-
-  $$response = http_post(
+  $response = http_post(
      url: $mailgun_endpoint,
      headers: { "content-type": "application/x-www-form-urlencoded"},
      body: $post_body
     )
+end
+
+# Returns the RightScale account number in which the CAT was launched.
+define find_account_name() return $account_name do
+  $session_info = rs_cm.sessions.get(view: "whoami")
+  $acct_link = select($session_info[0]["links"], {rel: "account"})
+  $acct_href = $acct_link[0]["href"]
+  $account_name = rs_cm.get(href: $acct_href).name
 end
