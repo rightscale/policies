@@ -71,9 +71,13 @@ end
 
 define find_long_running_instances($param_days_old) do
 
+    #@all_instances = rs_cm.instances.index(filter:["state==operational"])
+#`pending`, `booting`, `operational`, `stranded`, `stranded in booting`, `running`
     @all_instances = rs_cm.instances.index(filter:["state==operational"])
-
-
+    @all_instances = @all_instances + rs_cm.instances.index(filter:["state==booting"])
+    @all_instances = @all_instances + rs_cm.instances.index(filter:["state==pending"])
+    @all_instances = @all_instances + rs_cm.instances.index(filter:["state==stranded"])
+    @all_instances = @all_instances + rs_cm.instances.index(filter:["state==running"])
     #get account id to include in the email.
     call find_account_name() retrieve $account_name
     #refactor.
