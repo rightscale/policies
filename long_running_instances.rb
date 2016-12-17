@@ -129,7 +129,7 @@ define send_email_mailgun($to) do
 
 
       $response = http_get(
-        url: $rs_endpoint+"/api/instances?view=tiny",
+        url: $rs_endpoint+"/api/instances?view=default",
         headers: {
         "X-Api-Version": "1.6",
         "X-Account": $account_number
@@ -141,7 +141,7 @@ define send_email_mailgun($to) do
        $legacy_id = $instance_of_interest["legacy_id"]
        $data = split($instance_href, "/")
        $cloud_id = $data[3]
-       $server_access_link_root = "https://my.rightscale.com/acct/"+$account_number+"/clouds/"+$cloud_id+"/instances/"+$legacy_id
+       $server_access_link_root = "https://my.rightscale.com/acct/" + $account_number + "/clouds/" + $cloud_id + "/instances/" + $legacy_id
    end
 
 
