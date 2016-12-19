@@ -130,6 +130,9 @@ define find_unattached_volumes($param_action) do
                                               Volume Size
                                           </td>
                                           <td align=%22left%22 valign=%22top%22>
+                                              Days Old
+                                          </td>
+                                          <td align=%22left%22 valign=%22top%22>
                                               Volume Href
                                           </td>
                                           <td align=%22left%22 valign=%22top%22>
@@ -170,6 +173,7 @@ define find_unattached_volumes($param_action) do
           $volume_name = @volume.name
           $volume_size = @volume.size
           $volume_href = @volume.href
+          $display_days_old = first(split(to_s($how_old),"."))
 
           #get cloud name
           $cloud_name = @volume.cloud().name
@@ -185,7 +189,7 @@ define find_unattached_volumes($param_action) do
               end
             end
 
-        $volume_table = "<tr>" + $table_start + $volume_name + $table_end + $table_start + $volume_size + $table_end + $table_start + $volume_href + $table_end + $table_start + $cloud_name + $table_end + $table_start + $volume_id + $table_end +"</tr>"
+        $volume_table = "<tr>" + $table_start + $volume_name + $table_end + $table_start + $volume_size + $table_end + $table_start + $display_days_old + $table_end + $table_start + $volume_href + $table_end + $table_start + $cloud_name + $table_end + $table_start + $volume_id + $table_end +"</tr>"
             insert($list_of_volumes, -1, $volume_table)
         end
 
