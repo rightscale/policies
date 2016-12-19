@@ -144,7 +144,8 @@ define find_long_running_instances($param_days_old) do
     #/60/60/24
     $curr_time = now()
     #$$day_old = now() - (60*60*24)
-
+    call find_shard() retrieve $shard_number
+    call find_account_number() retrieve $account_id
     foreach @instance in @all_instances do
 
       #convert string to datetime to compare datetime
@@ -157,17 +158,26 @@ define find_long_running_instances($param_days_old) do
       $how_old = $difference /60/60/24
 
     	if $param_days_old < $how_old
-      call find_shard() retrieve $shard_number
-      call find_account_number() retrieve $account_id
 
       call get_server_access_link(@instance.href, $shard_number, $account_id) retrieve $server_access_link_root
       $instance_name = @instance.name
+
+      #if we're unable to get the instance type, it will be listed as unknown in the email report.
+      $instance_type = 'unknown'
+      sub on_error: skip do
       $instance_type = @instance.instance_type().description
+      end
+
+      $instance_state = 'unknown'
+      sub on_error: skip do
       $instance_state = @instance.state
+      end
+
       $cloud_name = @instance.cloud().name
       $display_days_old = first(split(to_s($how_old),"."))
-    $instance_table = "<tr>" + $table_start + $instance_name + $table_end + $table_start + $instance_type + $table_end + $table_start + $instance_state + $table_end + $table_start + $cloud_name + $table_end + $table_start + $display_days_old + $table_end + $table_start + $server_access_link_root + $table_end + "</tr>"
-    insert($list_of_instances, -1, $instance_table)
+
+      $instance_table = "<tr>" + $table_start + $instance_name + $table_end + $table_start + $instance_type + $table_end + $table_start + $instance_state + $table_end + $table_start + $cloud_name + $table_end + $table_start + $display_days_old + $table_end + $table_start + $server_access_link_root + $table_end + "</tr>"
+      insert($list_of_instances, -1, $instance_table)
     end
 
   end
@@ -201,44 +211,44 @@ end
 
 
 define send_email_mailgun($to) do
-    $mailgun_endpoint = "http://smtp.services.rightscale.com/v3/services.rightscale.com/messages"
+  $mailgun_endpoint = "http://smtp.services.rightscale.com/v3/services.rightscale.com/messages"
 
-       $to = gsub($to,"@","%40")
-       $subject = "Long Running Instances Report"
-       $text = "You have the following long running instances"
+     $to = gsub($to,"@","%40")
+     $subject = "Long Running Instances Report"
+     $text = "You have the following long running instances"
 
-       $post_body="from=policy-cat%40services.rightscale.com&to=" + $to + "&subject=Policy+Report&html=" + $$email_body
-
-
-    $$response = http_post(
-       url: $mailgun_endpoint,
-       headers: { "content-type": "application/x-www-form-urlencoded"},
-       body: $post_body
-      )
-  end
+     $post_body="from=policy-cat%40services.rightscale.com&to=" + $to + "&subject=Policy+Report&html=" + $$email_body
 
 
-  define get_server_access_link($instance_href, $shard, $account_number) return $server_access_link_root do
-
-      $rs_endpoint = "https://us-"+$shard+".rightscale.com"
-
-      $instance_id = last(split($instance_href, "/"))
-      $response = http_get(
-        url: $rs_endpoint+"/api/instances?ids="+$instance_id,
-        headers: {
-        "X-Api-Version": "1.6",
-        "X-Account": $account_number
-        }
-       )
+  $$response = http_post(
+     url: $mailgun_endpoint,
+     headers: { "content-type": "application/x-www-form-urlencoded"},
+     body: $post_body
+    )
+end
 
 
-       $instances = $response["body"]
-       $instance_of_interest = select($instances, { "href" : $instance_href })[0]
-       $legacy_id = $instance_of_interest["legacy_id"]
-       $data = split($instance_href, "/")
-       $cloud_id = $data[3]
-       $server_access_link_root = "https://my.rightscale.com/acct/" + $account_number + "/clouds/" + $cloud_id + "/instances/" + $legacy_id
-   end
+define get_server_access_link($instance_href, $shard, $account_number) return $server_access_link_root do
+
+    $rs_endpoint = "https://us-"+$shard+".rightscale.com"
+
+    $instance_id = last(split($instance_href, "/"))
+    $response = http_get(
+      url: $rs_endpoint+"/api/instances?ids="+$instance_id,
+      headers: {
+      "X-Api-Version": "1.6",
+      "X-Account": $account_number
+      }
+     )
+
+
+     $instances = $response["body"]
+     $instance_of_interest = select($instances, { "href" : $instance_href })[0]
+     $legacy_id = $instance_of_interest["legacy_id"]
+     $data = split($instance_href, "/")
+     $cloud_id = $data[3]
+     $server_access_link_root = "https://my.rightscale.com/acct/" + $account_number + "/clouds/" + $cloud_id + "/instances/" + $legacy_id
+ end
 
 
 
