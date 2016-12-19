@@ -37,17 +37,17 @@ end
 
 parameter "param_email" do
   category "Contact"
-  label "email address (reports are sent to this address)"
+  label "Email addresses (separate with commas)"
   type "string"
-  default "edwin@rightscale.com"
+
 
 end
 
 parameter "param_days_old" do
   category "Instance"
-  label "Report on instances that have been running longer than this number of days:"
+  label "Include instances with minimum days running of"
   type "number"
-  default "1"
+
 end
 
 
