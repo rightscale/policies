@@ -173,11 +173,15 @@ define find_long_running_instances($param_days_old) do
       $instance_state = @instance.state
       end
 
+      $cloud_name = 'unknown'
+      sub on_error: skip do
       $cloud_name = @instance.cloud().name
+      end
+
       $display_days_old = first(split(to_s($how_old),"."))
 
       $instance_table = "<tr>" + $table_start + $instance_name + $table_end + $table_start + $instance_type + $table_end + $table_start + $instance_state + $table_end + $table_start + $cloud_name + $table_end + $table_start + $display_days_old + $table_end + $table_start + $server_access_link_root + $table_end + "</tr>"
-      insert($list_of_instances, -1, $instance_table)
+     insert($list_of_instances, -1, $instance_table)
     end
 
   end
