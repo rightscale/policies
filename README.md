@@ -9,7 +9,7 @@ You can use Cloud Application Templates (CATs) in RightScale Self Service to aut
 ##Sample Policy CATs
 
 ###Unattached Volume Finder
-***What it does***
+**What it does**
 
 This policy CAT will search all your cloud accounts that are connected to the RightScale account where you are running the CAT. It will find unattached volumes that are have been unattached for longer than a specified number of days.
 
