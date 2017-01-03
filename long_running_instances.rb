@@ -39,15 +39,12 @@ parameter "param_email" do
   category "Contact"
   label "Email addresses (separate with commas)"
   type "string"
-
-
 end
 
 parameter "param_days_old" do
   category "Instance"
   label "Include instances with minimum days running of"
   type "number"
-
 end
 
 
@@ -137,7 +134,7 @@ define find_long_running_instances($param_days_old) do
                                           </td>
                                       </tr>
                                       "
-      $list_of_instances=""
+      $list_of_instances="a"
       $table_start="<td align=%22left%22 valign=%22top%22>"
       $table_end="</td>"
 
@@ -159,29 +156,39 @@ define find_long_running_instances($param_days_old) do
 
     	if $param_days_old < $how_old
 
-      call get_server_access_link(@instance.href, $shard_number, $account_id) retrieve $server_access_link_root
-      $instance_name = @instance.name
+        $server_access_link_root = 'unknown'
+        sub on_error: skip do
+        call get_server_access_link(@instance.href, $shard_number, $account_id) retrieve $server_access_link_root
+        end
 
-      #if we're unable to get the instance type, it will be listed as unknown in the email report.
-      $instance_type = 'unknown'
-      sub on_error: skip do
-      $instance_type = @instance.instance_type().description
-      end
+        $instance_name = 'unknown'
+        sub on_error: skip do
+        $instance_name = @instance.name
+        end
 
-      $instance_state = 'unknown'
-      sub on_error: skip do
-      $instance_state = @instance.state
-      end
+        #if we're unable to get the instance type, it will be listed as unknown in the email report.
+        $instance_type = 'unknown'
+        sub on_error: skip do
+        $instance_type = @instance.instance_type().description
+        end
 
-      $cloud_name = 'unknown'
-      sub on_error: skip do
-      $cloud_name = @instance.cloud().name
-      end
+        $instance_state = 'unknown'
+        sub on_error: skip do
+        $instance_state = @instance.state
+        end
 
-      $display_days_old = first(split(to_s($how_old),"."))
+        $cloud_name = 'unknown'
+        sub on_error: skip do
+        $cloud_name = @instance.cloud().name
+        end
 
-      $instance_table = "<tr>" + $table_start + $instance_name + $table_end + $table_start + $instance_type + $table_end + $table_start + $instance_state + $table_end + $table_start + $cloud_name + $table_end + $table_start + $display_days_old + $table_end + $table_start + $server_access_link_root + $table_end + "</tr>"
-     insert($list_of_instances, -1, $instance_table)
+        $display_days_old = 'unknown'
+        sub on_error: skip do
+        $display_days_old = first(split(to_s($how_old),"."))
+        end
+
+        $instance_table = "<tr>" + $table_start + $instance_name + $table_end + $table_start + $instance_type + $table_end + $table_start + $instance_state + $table_end + $table_start + $cloud_name + $table_end + $table_start + $display_days_old + $table_end + $table_start + $server_access_link_root + $table_end + "</tr>"
+        insert($list_of_instances, -1, $instance_table)
     end
 
   end
