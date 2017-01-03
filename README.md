@@ -22,6 +22,9 @@ To control the frequency that the policy CAT runs, you should [create a schedule
 
 Specify the days of the week that you want the CAT to run. For example, if you want the policy CAT to run once a week on Monday, specify a schedule of only Monday. For the hours you should specify approximately a 30 minute time window for the policy CAT to complete. (It should take less than 15 minutes to run).
 
+<img src="https://github.com/rs-services/policy-cats/readme_images/create_a_new_schedule.png">
+
+
 
 ###Long Running Instances
 
