@@ -13,6 +13,8 @@ You can use Cloud Application Templates (CATs) in RightScale Self Service to aut
 
 This policy CAT will search all your cloud accounts that are connected to the RightScale account where you are running the CAT. It will find unattached volumes that are have been unattached for longer than a specified number of days.
 
+You can choose to **Alert only** or **Alert and Delete** the volumes. **_Warning: Deleted volumes cannot be recovered_**.  We strongly recommend that you start with Alert only so that you can review the list and ensure that the volumes should actually be deleted. You can specify multiple email addresses that should be alerted and each email will receive a report with a list of unattached volumes.
+
 ###Long Running Instances
 
 
