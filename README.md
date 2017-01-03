@@ -4,7 +4,7 @@
 
 You can use Cloud Application Templates (CATs) in RightScale Self Service to automate policies. We have created sample policy CATs that you can use as a starting point. These are provided solely as samples under an Apache 2.0 open source license with no warranties.
 
-Important: You should test these CATs to ensure they work for your needs.
+**Important:** You should test these CATs to ensure they work for your needs.
 
 
 
