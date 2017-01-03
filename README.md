@@ -18,7 +18,7 @@ You can choose to **Alert only** or **Alert and Delete** the volumes. **_Warning
 The emails in the sample CAT are sent using a shared RightScale account of a free email service (mailgun). We have used a proxy, however, you may want to modify the CAT to use your own email service.
 
 **Scheduling when the policy runs**
-To control the frequency that the policy CAT runs, you should create a schedule and associate it with the CAT in RightScale Self-Service.
+To control the frequency that the policy CAT runs, you should [create a schedule and associate it with the CAT](http://docs.rightscale.com/ss/guides/ss_creating_schedules.html) in RightScale Self-Service.
 
 
 ###Long Running Instances
