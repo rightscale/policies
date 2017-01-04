@@ -2,7 +2,7 @@ name 'InstanceFinder'
 rs_ca_ver 20160622
 short_description "Finds long running instances"
 
-#Copyright 2016 RightScale
+#Copyright 2017 RightScale
 #
 #Licensed under the Apache License, Version 2.0 (the "License");
 #you may not use this file except in compliance with the License.
@@ -26,6 +26,14 @@ short_description "Finds long running instances"
 ##################
 # User inputs    #
 ##################
+
+
+parameter "param_days_old" do
+  category "Instance"
+  label "Include instances with minimum days running of"
+  type "number"
+end
+
 parameter "param_action" do
   category "Instance"
   label "Instance Action"
@@ -40,14 +48,6 @@ parameter "param_email" do
   label "Email addresses (separate with commas)"
   type "string"
 end
-
-parameter "param_days_old" do
-  category "Instance"
-  label "Include instances with minimum days running of"
-  type "number"
-end
-
-
 
 operation "launch" do
   description "Find long running instances"
