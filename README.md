@@ -40,7 +40,6 @@ This policy might be useful in demo, training, development, or test accounts whe
 
 You can choose to **Alert only** or **Alert and Terminate** the instances. We strongly recommend that you start with **Alert only** so that you can review the list and ensure that the instances should actually be terminated. **_Warning: Terminated instances cannot be recovered._** You can specify multiple email addresses that should be alerted and each email will receive a report with a list of long-running instances.
 
-####sample report
 
 **Notifications (Email)**
 The emails in the sample CAT are sent using a shared RightScale account of a free email service (mailgun). We have used a proxy, however, you may want to modify the CAT to use your own email service.
