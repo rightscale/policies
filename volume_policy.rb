@@ -4,7 +4,7 @@ name 'Unattached Volume Policy'
 rs_ca_ver 20160622
 short_description "This automated policy CAT will find unattached volumes, send alerts, and optionally delete them."
 
-#Copyright 2016 RightScale
+#Copyright 2017 RightScale
 #
 #Licensed under the Apache License, Version 2.0 (the "License");
 #you may not use this file except in compliance with the License.

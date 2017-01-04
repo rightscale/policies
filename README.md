@@ -15,7 +15,7 @@ This policy CAT will search all your cloud accounts that are connected to the Ri
 
 You can choose to **Alert only** or **Alert and Delete** the volumes. **_Warning: Deleted volumes cannot be recovered_**.  We strongly recommend that you **start with Alert only** so that you can review the list and ensure that the volumes should actually be deleted. You can specify multiple email addresses that should be alerted and each email will receive a report with a list of unattached volumes.
 
-<img src="https://github.com/rs-services/policy-cats/blob/master/readme_images/long_running_instance_screenshot.png" width="600">
+<img src="https://github.com/rs-services/policy-cats/blob/master/readme_images/volume_email_screenshot.png" width="600">
 
 The emails in the sample CAT are sent using a shared RightScale account of a free email service (mailgun). We have used a proxy, however, you may want to modify the CAT to use your own email service.
 
@@ -44,6 +44,8 @@ You can choose to **Alert only** or **Alert and Terminate** the instances. We st
 
 **Notifications (Email)**
 The emails in the sample CAT are sent using a shared RightScale account of a free email service (mailgun). We have used a proxy, however, you may want to modify the CAT to use your own email service.
+
+<img src="https://github.com/rs-services/policy-cats/blob/master/readme_images/long_running_instance_screenshot.png" width="600">
 
 **Scheduling when the policy runs**
 To control the frequency that the policy CAT runs, you should [create a schedule and associate it with the CAT](http://docs.rightscale.com/ss/guides/ss_creating_schedules.html) in RightScale Self-Service.
