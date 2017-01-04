@@ -54,6 +54,7 @@ Specify the days of the week that you want the CAT to run. For example, if you w
 <img src="https://github.com/rs-services/policy-cats/blob/master/readme_images/create_a_new_schedule.png">
 
 **Cost**
+
 This policy CAT does not launch any instances, and so does not incur any cloud costs.
 
 
