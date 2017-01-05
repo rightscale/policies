@@ -1,6 +1,6 @@
 name 'Instance Runtime Policy'
 rs_ca_ver 20160622
-short_description "Finds long running instances"
+short_description "This automated policy CAT will find instances that have been running longer than a specified time, send alerts, and optionally delete them."
 
 #Copyright 2017 RightScale
 #
