@@ -77,9 +77,9 @@ define find_long_running_instances($param_days_old) do
     call find_account_name() retrieve $account_name
     #refactor.
     if $param_action == "Alert and Terminate"
-      $email_msg = "RightScale discovered the following long running instances in "+ $account_name +". Per the policy set by your organization, these instances have been terminated and are no longer accessible"
+      $email_msg = "RightScale discovered the following instances in "+ $account_name +". Per the policy set by your organization, these instances have been terminated and are no longer accessible"
     else
-      $email_msg = "RightScale discovered the following long running instances in "+ $account_name +". These instances are incurring cloud charges and should be terminated if they are no longer being used."
+      $email_msg = "RightScale discovered the following instances in "+ $account_name +" that exceed your instance runtime policy of" + $param_days_old +" days."
     end
 
 
