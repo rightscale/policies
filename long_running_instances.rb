@@ -38,7 +38,7 @@ parameter "param_action" do
   category "Instance"
   label "Instance Action"
   type "string"
-  allowed_values "Alert Only", "Alert and Terminate"
+  allowed_values "Alert Only","Alert and Terminate"
   default "Alert Only"
 end
 
