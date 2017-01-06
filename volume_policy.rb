@@ -68,13 +68,15 @@ end
 ##################
 
 define launch($param_email,$param_action,$param_days_old) return $param_email,$param_action,$param_days_old do
-        call find_unattached_volumes($param_action)
+        call find_unattached_volumes($param_action) retrieve $send_email
         sleep(20)
-        call send_email_mailgun($param_email)
+        if $send_email == "true"
+          call send_email_mailgun($param_email)
+        end
 end
 
 
-define find_unattached_volumes($param_action) do
+define find_unattached_volumes($param_action) return $send_email do
 
     #get all volumes
     @all_volumes = rs_cm.volumes.index(view: "default")
@@ -169,6 +171,7 @@ define find_unattached_volumes($param_action) do
 
         #check the age of the volume
         elsif $param_days_old < $how_old
+          $send_email = 'true'
           $volume_name = @volume.name
           $volume_size = @volume.size
           $volume_href = @volume.href
