@@ -233,9 +233,10 @@ end
 
 define send_email_mailgun($to) do
   $mailgun_endpoint = "http://smtp.services.rightscale.com/v3/services.rightscale.com/messages"
+  call find_account_name() retrieve $account_name
 
    $to = gsub($to,"@","%40")
-   $post_body="from=policy-cat%40services.rightscale.com&to=" + $to + "&subject=Volume+Policy+Report&html=" + $$email_body
+   $post_body="from=policy-cat%40services.rightscale.com&to=" + $to + "&subject=[" + $account_name + "] Volume+Policy+Report&html=" + $$email_body
 
   $response = http_post(
      url: $mailgun_endpoint,
