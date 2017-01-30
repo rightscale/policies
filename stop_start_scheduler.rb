@@ -30,98 +30,22 @@ rs_ca_ver 20160622
 # To be a candidate for the Start/Stop Scheduler, any instance/server
 # must have the following tag on it's current instance:
 #    instance:scheduler=true
-
-# Tie to an existing native Self-Service Schedule Name:
-#    instance:ss_schedule=<schedule name>
-
-# Use a CM pre-defined (non-SS) schedule, e.g.:
-#    instance:cm_schedule=weekdays7to7
-
-# CM scheduling convention (when the instance should be running):
-#     instance:cm_schedule=<days><hour-to-hour>
-
-# supported:
-# <days> - weekdays, alldays
-# <hour-to-hour> - <0-23>-to-<0-23>
-
-# CM supported (non-SS) schedules:
-# - instance:cm_schedule=weekdays7to7
-#       stop conditions:
-#       - after 7pm, before 7am
-#       start conditions:
-#       - after 7am, before 7pm
-#       - not on sat or sun
-# - instance:cm_schedule=weekdays9to5
-#       stop conditions:
-#       - after 5pm, before 9am
-#       start conditions:
-#       - after 5am, before 9pm
-#       - not on sat or sun
+#    instance:schedule=<name of ss schedule>
+#        e.g. instance:schedule=7am-11pm Weekdays
 
 ###
 # Global Mappings
 ###
-mapping 'cm_instance_schedule_map' do {
-  'Weekdays 7am to 7pm' => {
-    'tag_value' => 'weekdays7to7',
-    'active_days' => 'MO,TU,WE,TH,FR',
-    'term_after' => '19:00',
-    'start_before' => '7:00'
-  },
-  'Weekdays 9am to 5pm' => {
-    'tag_value' => 'weekdays9to5',
-    'active_days' => 'MO,TU,WE,TH,FR,SA,SU',
-    'term_after' => '17:00',
-    'start_before' => '9:00'
-  },
-} end
-
-# likely not needed as abbreviation is simply first two letters upcased
-# iCal format
-mapping 'days' do {
-  'Monday' => {
-    'abbrev' => 'MO'
-  },
-  'Tuesday' => {
-    'abbrev' => 'TU'
-  },
-  'Wednesday' => {
-    'abbrev' => 'WE'
-  },
-  'Thursday' => {
-    'abbrev' => 'TH'
-  },
-  'Friday' => {
-    'abbrev' => 'FR'
-  },
-  'Saturday' => {
-    'abbrev' => 'SA'
-  },
-  'Sunday' => {
-    'abbrev' => 'SU'
-  },
-} end
 
 ###
 # User Inputs
 ###
-parameter 'scheduler_type' do
-  label 'Scheduler'
-  description 'The type of scheduler to use (only CM currently implemented).'
-  type 'string'
-  default 'Cloud Management-based'
-  # ss not yet implemented
-  # allowed_values 'Cloud Management-based', 'Self-Service Schedule'
-  allowed_values 'Cloud Management-based'
-end
-
-parameter 'schedule_name' do
+parameter 'ss_schedule_name' do
   category 'Scheduler Policy'
-  label 'Schedule'
-  description "The schedule to use when using the 'Cloud Management-based' scheduler."
+  label 'Schedule Name'
+  description "The self-service schedule to use (this needs to match an existing schedule within the 'Schedule Manager')."
   type 'string'
-  default 'Weekdays 7am to 7pm'
-  allowed_values 'Weekdays 7am to 7pm', 'Weekdays 9am to 5pm'
+  min_length 1
 end
 
 parameter 'scheduler_tags_exclude' do
@@ -148,6 +72,20 @@ parameter 'scheduler_enforce_strict' do
   type 'string'
   default 'false'
   allowed_values 'true', 'false'
+end
+
+parameter 'timezone_override' do
+  category 'Advanced Options'
+  label 'Timezone Override'
+  description "By default, the self-service user's timezone is used."
+  type 'string'
+end
+
+parameter 'rrule_override' do
+  category 'Advanced Options'
+  label 'RRULE Override'
+  description "By default, the the iCal RRULE is taken from the scheduler policy."
+  type 'string'
 end
 
 parameter 'polling_frequency' do
@@ -204,7 +142,53 @@ define debug_audit_log($summary, $details) do
   end
 end
 
-define run_scan($cm_instance_schedule_map, $scheduler_type, $schedule_name, $scheduler_enforce_strict, $scheduler_tags_exclude, $scheduler_servers_only, $scheduler_dry_mode, $polling_frequency, $debug_mode) do
+define get_schedule_by_name($ss_schedule_name) return @schedule do
+  @schedules = rs_ss.schedules.index()
+  @schedule = select(@schedules, { "name": $ss_schedule_name })
+end
+
+define window_active($start_hour, $start_minute, $start_rule, $stop_hour, $stop_minute, $stop_rule, $tz) return $window_active do
+  $params = {
+    verb: 'get',
+    host: 'gm2zkzuvdb.execute-api.ap-southeast-2.amazonaws.com',
+    https: true,
+    href: '/window_check',
+    query_strings: {
+      'start_hour': $start_hour,
+      'start_minute': $start_minute,
+      'start_rule': $start_rule,
+      'stop_minute': $stop_minute,
+      'stop_hour': $stop_hour,
+      'stop_rule': $stop_rule,
+      'tz': $tz
+    }
+  }
+  call audit_log('window active $params', to_s($params))
+  $response = http_request($params)
+  call audit_log('window active $response', to_s($response))
+  $body = $response['body']
+  call audit_log('window active $body', to_s($body))
+
+  $window_active = to_b($body['event_active'])
+end
+
+define run_scan($ss_schedule_name, $scheduler_enforce_strict, $scheduler_tags_exclude, $scheduler_servers_only, $scheduler_dry_mode, $polling_frequency, $debug_mode, $timezone_override, $rrule_override) do
+  if size($timezone_override) > 0
+    $timezone = $timezone_override
+  else
+    call get_my_timezone() retrieve $timezone
+  end
+
+  # get the ss schedule by name and check if the event window is active
+  call get_schedule_by_name($ss_schedule_name) retrieve @schedule
+  $start_rule = @schedule.start_recurrence['rule']
+  $start_hour = @schedule.start_recurrence['hour']
+  $start_minute = @schedule.start_recurrence['minute']
+  $stop_rule = @schedule.stop_recurrence['rule']
+  $stop_hour = @schedule.stop_recurrence['hour']
+  $stop_minute = @schedule.stop_recurrence['minute']
+  call window_active($start_hour, $start_minute, $start_rule, $stop_hour, $stop_minute, $stop_rule, $timezone) retrieve $window_active
+
   if $scheduler_enforce_strict == 'true'
     # TODO: not yet implemented/supported
     # all instances are candidates for a stop action
@@ -213,7 +197,7 @@ define run_scan($cm_instance_schedule_map, $scheduler_type, $schedule_name, $sch
     end
   else
     # only instances tagged with a schedule are candidates for either a stop or start action
-    $search_tags = [join(['instance:cm_schedule=', map($cm_instance_schedule_map, $schedule_name, 'tag_value')])]
+    $search_tags = [join(['instance:schedule=', $ss_schedule_name])]
     call audit_log('$search_tags', to_s($search_tags))
 
     $by_tag_params = {
@@ -234,10 +218,6 @@ define run_scan($cm_instance_schedule_map, $scheduler_type, $schedule_name, $sch
         $instance_tags = first(first($resource_tags))['tags']
         call audit_log('tags: ' + $instance_href, to_s($instance_tags))
 
-        # debug/example of getting the tag originally searched with
-        # $cm_schedule_tag = select($instance_tags, { "name": "/instance:cm_schedule/" })
-        # $cm_schedule = split($cm_schedule_tag[0]['name'], '=')[1]
-
         # get the instance
         call audit_log('fetching instance ' + $instance_href, $instance_href)
         @instance = rs_cm.get(href: $instance_href)
@@ -249,35 +229,33 @@ define run_scan($cm_instance_schedule_map, $scheduler_type, $schedule_name, $sch
         # determine if instance should be stopped or started based on:
         # 1. inside or outside schedule
         # 2. current operational state
-        # TODO: UTC to RFC datetime with timezone
-        # WIP!!
-        $current_datetime = now()
-        $current_day = strftime($current_datetime, "%A")
-        $current_time = strftime($current_datetime, "%R")
-        call audit_log('$day is ' + $current_day + ', $time is ' + $current_time, '')
 
-        if @instance.state =~ $stoppable
+        if ! $window_active
+          call audit_log('schedule window is currently not active', '')
+        end
+
+        if (! $window_active && @instance.state =~ $stoppable)
           # stop the instance
           if $scheduler_dry_mode != 'true'
-            call audit_log('stopping ' + @instance.href)
+            call audit_log('stopping ' + @instance.href, to_s(@instance))
             @instance.stop()
           else
             call audit_log('dry mode, skipping stop of ' + @instance.href, @instance.href)
           end
-        elsif @instance.state =~ $startable
-          # stop the instance
+        end
+
+        if ($window_active && @instance.state =~ $startable)
+          # start the instance
           if $scheduler_dry_mode != 'true'
-            call audit_log('starting ' + @instance.href)
+            call audit_log('starting ' + @instance.href, to_s(@instance))
             @instance.start()
           else
             call audit_log('dry mode, skipping start of ' + @instance.href, @instance.href)
           end
-        else
-          call audit_log('instance is neither in a stoppable or startable state')
         end
       end
     else
-      call audit_log('no instances found with needed scheduling tag(s), sleeping', to_s($results))
+      call audit_log('no instances found with needed scheduling tag(s)', to_s($results))
     end
   end
 end
@@ -313,7 +291,7 @@ end
 ###
 # Launch Definition
 ###
-define launch_scheduler($cm_instance_schedule_map, $scheduler_type, $schedule_name, $scheduler_enforce_strict, $scheduler_tags_exclude, $scheduler_servers_only, $scheduler_dry_mode, $polling_frequency, $debug_mode) do
+define launch_scheduler($ss_schedule_name, $scheduler_enforce_strict, $scheduler_tags_exclude, $scheduler_servers_only, $scheduler_dry_mode, $polling_frequency, $debug_mode, $timezone_override, $rrule_override) do
   if $debug_mode == 'true'
     $$debug = true
   end
@@ -323,7 +301,8 @@ define launch_scheduler($cm_instance_schedule_map, $scheduler_type, $schedule_na
 
   call setup_scheduled_scan($polling_frequency, $timezone)
 
-  call run_scan($cm_instance_schedule_map, $scheduler_type, $schedule_name, $scheduler_enforce_strict, $scheduler_tags_exclude, $scheduler_servers_only, $scheduler_dry_mode, $polling_frequency, $debug_mode)
+  # uncomment to run a scan on cloudapp start
+  #call run_scan($cm_instance_schedule_map, $ss_schedule_name, $scheduler_enforce_strict, $scheduler_tags_exclude, $scheduler_servers_only, $scheduler_dry_mode, $polling_frequency, $debug_mode, $timezone_override, $rrule_override)
 end
 
 ###
