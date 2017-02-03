@@ -81,7 +81,7 @@ define find_long_running_instances($param_days_old) return $send_email do
     if $param_action == "Alert and Terminate"
       $email_msg = "RightScale discovered the following instances in "+ $account_name +". Per the policy set by your organization, these instances have been terminated and are no longer accessible"
     else
-      $email_msg = "RightScale discovered the following instances in "+ $account_name +" that exceed your instance runtime policy of" + $param_days_old +" days."
+      $email_msg = "RightScale discovered the following instances in "+ $account_name +" that exceed your instance runtime policy of " + $param_days_old +" days."
     end
 
 
