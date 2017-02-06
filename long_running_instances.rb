@@ -75,6 +75,7 @@ define find_long_running_instances($param_days_old) return $send_email do
     @all_instances = @all_instances + rs_cm.instances.index(filter:["state==pending"])
     @all_instances = @all_instances + rs_cm.instances.index(filter:["state==stranded"])
     @all_instances = @all_instances + rs_cm.instances.index(filter:["state==running"])
+    @all_instances = @all_instances + rs_cm.instances.index(filter:["state==provisioned"])
     #get account id to include in the email.
     call find_account_name() retrieve $account_name
     #refactor.
