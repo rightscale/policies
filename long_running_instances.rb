@@ -76,74 +76,19 @@ define find_long_running_instances($param_days_old) return $send_email do
     @all_instances = @all_instances + rs_cm.instances.index(filter:["state==stranded"])
     @all_instances = @all_instances + rs_cm.instances.index(filter:["state==running"])
     @all_instances = @all_instances + rs_cm.instances.index(filter:["state==provisioned"])
-    #get account id to include in the email.
-    call find_account_name() retrieve $account_name
-    #refactor.
-    if $param_action == "Alert and Terminate"
-      $email_msg = "RightScale discovered the following instances in "+ $account_name +". Per the policy set by your organization, these instances have been terminated and are no longer accessible"
-    else
-      $email_msg = "RightScale discovered the following instances in "+ $account_name +" that exceed your instance runtime policy of " + $param_days_old +" days."
-    end
 
-
-    $header="\<\!DOCTYPE html PUBLIC \"-\/\/W3C\/\/DTD XHTML 1.0 Transitional\/\/EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\"\>
-    <html xmlns=\"http:\/\/www.w3.org\/1999\/xhtml\">
-        <head>
-            <meta http-equiv=%22Content-Type%22 content=%22text/html; charset=UTF-8%22 />
-            <a href=%22//www.rightscale.com%22>
-<img src=%22https://assets.rightscale.com/6d1cee0ec0ca7140cd8701ef7e7dceb18a91ba20/web/images/logo.png%22 alt=%22RightScale Logo%22 width=%22200px%22 />
-</a>
-            <style></style>
-        </head>
-        <body>
-          <table border=%220%22 cellpadding=%220%22 cellspacing=%220%22 height=%22100%%22 width=%22100%%22 id=%22bodyTable%22>
-              <tr>
-                  <td align=%22left%22 valign=%22top%22>
-                      <table border=%220%22 cellpadding=%2220%22 cellspacing=%220%22 width=%22100%%22 id=%22emailContainer%22>
-                          <tr>
-                              <td align=%22left%22 valign=%22top%22>
-                                  <table border=%220%22 cellpadding=%2220%22 cellspacing=%220%22 width=%22100%%22 id=%22emailHeader%22>
-                                      <tr>
-                                          <td align=%22left%22 valign=%22top%22>
-                                             " + $email_msg + "
-                                          </td>
-
-                                      </tr>
-                                  </table>
-                              </td>
-                          </tr>
-                          <tr>
-                              <td align=%22left%22 valign=%22top%22>
-                                  <table border=%220%22 cellpadding=%2210%22 cellspacing=%220%22 width=%22100%%22 id=%22emailBody%22>
-                                      <tr>
-                                          <td align=%22left%22 valign=%22top%22>
-                                              Instance Name
-                                          </td>
-                                          <td align=%22left%22 valign=%22top%22>
-                                              Type
-                                          </td>
-                                          <td align=%22left%22 valign=%22top%22>
-                                              State
-                                          </td>
-                                          <td align=%22left%22 valign=%22top%22>
-                                              Cloud
-                                          </td>
-                                          <td align=%22left%22 valign=%22top%22>
-                                              Days Old
-                                          </td>
-                                          <td align=%22left%22 valign=%22top%22>
-                                              Link
-                                          </td>
-                                      </tr>
-                                      "
-      $list_of_instances=""
-      $table_start="<td align=%22left%22 valign=%22top%22>"
-      $table_end="</td>"
+    $list_of_instances=""
+    $table_start="<td align=%22left%22 valign=%22top%22>"
+    $table_end="</td>"
 
     #/60/60/24
     $curr_time = now()
     call find_shard() retrieve $shard_number
     call find_account_number() retrieve $account_id
+
+    #counter to included total number of instances found that trigger the policy
+    $number_of_instance_found=0
+
     foreach @instance in @all_instances do
 
       #convert string to datetime to compare datetime
@@ -156,6 +101,7 @@ define find_long_running_instances($param_days_old) return $send_email do
       $how_old = $difference /60/60/24
 
     	if $param_days_old < $how_old
+        $number_of_instance_found=$number_of_instance_found + 1
         $send_email = "true"
         sub on_error: skip do
         call get_server_access_link(@instance.href, $shard_number, $account_id) retrieve $server_access_link_root
@@ -221,6 +167,71 @@ define find_long_running_instances($param_days_old) return $send_email do
         insert($list_of_instances, -1, $instance_table)
     end
   end
+
+    #form email
+
+    call find_account_name() retrieve $account_name
+    #refactor.
+    if $param_action == "Alert and Terminate"
+      #RightScale discovered *44* instances in account *cb-marketplace* that exceed your instance runtime policy of 7 days."
+      $email_msg = "RightScale discovered <b>" + $number_of_instance_found + "</b> instances in <b>"+ $account_name +".</b> Per the policy set by your organization, these instances have been terminated and are no longer accessible"
+    else
+      $email_msg = "RightScale discovered <b>" + $number_of_instance_found + "</b> instances in <b>"+ $account_name +"</b> that exceed your instance runtime policy of " + $param_days_old +" days."
+    end
+
+
+    $header="\<\!DOCTYPE html PUBLIC \"-\/\/W3C\/\/DTD XHTML 1.0 Transitional\/\/EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\"\>
+    <html xmlns=\"http:\/\/www.w3.org\/1999\/xhtml\">
+        <head>
+            <meta http-equiv=%22Content-Type%22 content=%22text/html; charset=UTF-8%22 />
+            <a href=%22//www.rightscale.com%22>
+<img src=%22https://assets.rightscale.com/6d1cee0ec0ca7140cd8701ef7e7dceb18a91ba20/web/images/logo.png%22 alt=%22RightScale Logo%22 width=%22200px%22 />
+</a>
+            <style></style>
+        </head>
+        <body>
+          <table border=%220%22 cellpadding=%220%22 cellspacing=%220%22 height=%22100%%22 width=%22100%%22 id=%22bodyTable%22>
+              <tr>
+                  <td align=%22left%22 valign=%22top%22>
+                      <table border=%220%22 cellpadding=%2220%22 cellspacing=%220%22 width=%22100%%22 id=%22emailContainer%22>
+                          <tr>
+                              <td align=%22left%22 valign=%22top%22>
+                                  <table border=%220%22 cellpadding=%2220%22 cellspacing=%220%22 width=%22100%%22 id=%22emailHeader%22>
+                                      <tr>
+                                          <td align=%22left%22 valign=%22top%22>
+                                             " + $email_msg + "
+                                          </td>
+
+                                      </tr>
+                                  </table>
+                              </td>
+                          </tr>
+                          <tr>
+                              <td align=%22left%22 valign=%22top%22>
+                                  <table border=%220%22 cellpadding=%2210%22 cellspacing=%220%22 width=%22100%%22 id=%22emailBody%22>
+                                      <tr>
+                                          <td align=%22left%22 valign=%22top%22>
+                                              Instance Name
+                                          </td>
+                                          <td align=%22left%22 valign=%22top%22>
+                                              Type
+                                          </td>
+                                          <td align=%22left%22 valign=%22top%22>
+                                              State
+                                          </td>
+                                          <td align=%22left%22 valign=%22top%22>
+                                              Cloud
+                                          </td>
+                                          <td align=%22left%22 valign=%22top%22>
+                                              Days Old
+                                          </td>
+                                          <td align=%22left%22 valign=%22top%22>
+                                              Link
+                                          </td>
+                                      </tr>
+                                      "
+
+
 
       $footer="</tr></table></td></tr><tr><td align=%22left%22 valign=%22top%22><table border=%220%22 cellpadding=%2220%22 cellspacing=%220%22 width=%22100%%22 id=%22emailFooter%22><tr><td align=%22left%22 valign=%22top%22>
               This report was automatically generated by a policy template Instance Runtime Policy your organization has defined in RightScale.
