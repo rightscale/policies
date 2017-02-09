@@ -75,7 +75,9 @@ define find_long_running_instances($param_days_old) return $send_email do
     @all_instances = @all_instances + rs_cm.instances.index(filter:["state==pending"])
     @all_instances = @all_instances + rs_cm.instances.index(filter:["state==stranded"])
     @all_instances = @all_instances + rs_cm.instances.index(filter:["state==running"])
+
     #todo - add drop down to select if stopped instances should be included.
+
     @all_instances = @all_instances + rs_cm.instances.index(filter:["state==provisioned"])
 
     $list_of_instances=""
@@ -91,13 +93,16 @@ define find_long_running_instances($param_days_old) return $send_email do
     $number_of_instance_found=0
 
     foreach @instance in @all_instances do
+
       $instance_name = ""
       $instance_type = ""
       $instance_state = ""
       $cloud_name = ""
       $display_days_old = ""
       $server_access_link_root = ""
-      #convert string to datetime to compare datetime
+
+
+       #convert string to datetime to compare datetime
       $instance_updated_at = to_d(@instance.updated_at)
 
       #the difference between dates
@@ -109,6 +114,7 @@ define find_long_running_instances($param_days_old) return $send_email do
     	if $param_days_old < $how_old
         $number_of_instance_found=$number_of_instance_found + 1
         $send_email = "true"
+
 
         sub task_label: "retrieing access link", on_error: error_server_link() do
         call get_server_access_link(@instance.href, $shard_number, $account_id) retrieve $server_access_link_root
@@ -138,29 +144,8 @@ define find_long_running_instances($param_days_old) return $send_email do
         $display_days_old = first(split(to_s($how_old),"."))
         end
 
-        # if $instance_type == null
-        #   $instance_type = 'unknown'
-        # end
-        #
-        # if $server_access_link_root == null
-        #     $server_access_link_root = 'unknown'
-        # end
-        #
-        # if $instance_name == null
-        #     $instance_name = 'unknown'
-        # end
-        #
-        # if $instance_state == null
-        #   $instance_state = 'unknown'
-        # end
-        #
-        # if $cloud_name == null
-        #   $cloud_name = 'unknown'
-        # end
-        #
-        # if $display_days_old == null
-        #   $display_days_old = 'unknown'
-        # end
+
+
 
         #here we decide if we should delete the volume
         if $param_action == "Alert and Terminate"
@@ -183,6 +168,7 @@ define find_long_running_instances($param_days_old) return $send_email do
     call find_account_name() retrieve $account_name
     #refactor.
     if $param_action == "Alert and Terminate"
+
       $email_msg = "RightScale discovered <b>" + $number_of_instance_found + "</b> instances in <b>"+ $account_name +".</b> Per the policy set by your organization, these instances have been terminated and are no longer accessible"
     else
       $email_msg = "RightScale discovered <b>" + $number_of_instance_found + "</b> instances in <b>"+ $account_name +"</b> that exceed your instance runtime policy of " + $param_days_old +" days."
@@ -298,6 +284,7 @@ define get_server_access_link($instance_href, $shard, $account_number) return $s
  end
 
 
+
 define error_server_link() return $server_access_link_root do
   $server_access_link_root = "unknown"
    $_error_behavior = "skip"
@@ -327,6 +314,7 @@ define error_instance_state() return $instance_state do
   $instance_state = "unknown"
   $_error_behavior = "skip"
 end
+ 
 
   # Returns the RightScale account number in which the CAT was launched.
 define find_account_number() return $account_id do
