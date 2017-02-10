@@ -128,7 +128,7 @@ define find_unattached_volumes($param_action) return $send_email do
                                               Volume Name
                                           </td>
                                           <td align=%22left%22 valign=%22top%22>
-                                              Volume Size
+                                              Volume Size (GB)
                                           </td>
                                           <td align=%22left%22 valign=%22top%22>
                                               Days Old
