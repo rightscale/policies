@@ -63,6 +63,13 @@ parameter 'scheduler_tags_exclude' do
   default 'instance:scheduler_exclude=true,instance:immutable=true'
 end
 
+parameter 'email_recipients' do
+  category 'Reporting'
+  label 'Email Recipients'
+  description 'A comma-separated list of email addresses to send reports to when actions are taken on instances.'
+  type 'string'
+end
+
 # not yet implemented
 # parameter 'scheduler_servers_only' do
 #  category 'Scheduler Policy'
@@ -772,7 +779,50 @@ define window_active($start_hour, $start_minute, $start_rule, $stop_hour, $stop_
   $window_active = to_b($body['event_active'])
 end
 
-define run_scan($ss_schedule_name, $scheduler_tags_exclude, $scheduler_dry_mode, $polling_frequency, $debug_mode, $timezone_override, $rrule_override) do
+define find_account_name() return $account_name do
+  $session_info = rs_cm.sessions.get(view: 'whoami')
+  $acct_link = select($session_info[0]['links'], {rel: 'account'})
+  $acct_href = $acct_link[0]['href']
+  $account_name = rs_cm.get(href: $acct_href).name
+end
+
+define html_template() return $html_template do
+  
+end
+
+define send_html_email($to, $from, $subject, $body) return $response do
+  $mailgun_endpoint = 'http://smtp.services.rightscale.com/v3/services.rightscale.com/messages'
+
+  $to = gsub($to, "@", "%40")
+  $from = gsub($from, "@", "%40")
+  $post_body = 'from=' + $from + '&to=' + $to + '&subject=' + $subject + '&html=' + $body
+
+  $response = http_post(
+    url: $mailgun_endpoint,
+    headers: {"content-type": "application/x-www-form-urlencoded"},
+    body: $post_body
+  )
+end
+
+define send_report($start_count, $stop_count, $email_recipients) do
+  call find_account_name() retrieve $account_name
+
+  # email content
+  $to = $email_recipients
+  $from = 'policy-cat@services.rightscale.com'
+  $subject = join(['[', $account_name, ']', ' Instance stop/start scheduler report'
+
+  $body = 'started ' + to_s($start_count) + ', stopped ' + to_s($stop_count)
+
+  call send_html_email($to, $from, $subject, $body) retrieve $response
+  call debug_audit_log('mail send response', to_s($response))
+
+  if $response['code'] != 200
+    raise 'Failed to send email report: ' + to_s($response)
+  end
+end
+
+define run_scan($ss_schedule_name, $scheduler_tags_exclude, $scheduler_dry_mode, $polling_frequency, $debug_mode, $timezone_override, $rrule_override, $email_recipients) do
   call audit_log('instance scan started', '')
 
   if $debug_mode == 'true'
@@ -785,6 +835,10 @@ define run_scan($ss_schedule_name, $scheduler_tags_exclude, $scheduler_dry_mode,
   else
     call get_my_timezone() retrieve $timezone
   end
+
+  # set the counters
+  $stop_count = 0
+  $start_count = 0
 
   # get the ss schedule by name and check if the event window is active
   call get_schedule_by_name($ss_schedule_name) retrieve @schedule
@@ -852,18 +906,23 @@ define run_scan($ss_schedule_name, $scheduler_tags_exclude, $scheduler_dry_mode,
         $stoppable = /^(running|operational|stranded)$/
         $startable = /^(stopped|provisioned)$/
 
-        # determine if instance should be stopped or started based on:
-        # 1. inside or outside schedule
-        # 2. current operational state
-        if ! $window_active
+        if $window_active
+          call audit_log('schedule window is currently active', '')
+          call audit_log('instances by rule may be started, if startable', '')
+        else
           call audit_log('schedule window is currently in-active', '')
           call audit_log('instances by rule may be stopped, if stoppable', '')
         end
+
+        # determine if instance should be stopped or started based on:
+        # 1. inside or outside schedule
+        # 2. current operational state
         if (! $window_active && @instance.state =~ $stoppable)
           # stop the instance
           if $scheduler_dry_mode != 'true'
             call audit_log('stopping ' + @instance.href, to_s(@instance))
             @instance.stop()
+            $stop_count = $stop_count + 1
           else
             call audit_log('dry mode, skipping stop of ' + @instance.href, @instance.href)
           end
@@ -873,6 +932,7 @@ define run_scan($ss_schedule_name, $scheduler_tags_exclude, $scheduler_dry_mode,
           if $scheduler_dry_mode != 'true'
             call audit_log('starting ' + @instance.href, to_s(@instance))
             @instance.start()
+            $start_count = $start_count + 1
           else
             call audit_log('dry mode, skipping start of ' + @instance.href, @instance.href)
           end
@@ -883,6 +943,12 @@ define run_scan($ss_schedule_name, $scheduler_tags_exclude, $scheduler_dry_mode,
     end
   else
     call audit_log('no instances found with needed scheduling tag(s)', to_s($results))
+  end
+
+  # email report
+  if ($stop_count > 0 || $start_count > 0) && (size($email_recipients) > 0)
+    call audit_log('sending report to ' + $email_recipients, $email_recipients)
+    call send_report($start_count, $stop_count, $email_recipients)
   end
 
   call audit_log('instance scan finished', '')
@@ -919,7 +985,7 @@ end
 ###
 # Launch Definition
 ###
-define launch_scheduler($ss_schedule_name, $scheduler_tags_exclude, $scheduler_dry_mode, $polling_frequency, $debug_mode, $timezone_override, $rrule_override) do
+define launch_scheduler($ss_schedule_name, $scheduler_tags_exclude, $scheduler_dry_mode, $polling_frequency, $debug_mode, $timezone_override, $rrule_override, $email_recipients) do
   if size($timezone_override) > 0
     $timezone = $timezone_override
   else
@@ -932,7 +998,7 @@ define launch_scheduler($ss_schedule_name, $scheduler_tags_exclude, $scheduler_d
   call setup_scheduled_scan($polling_frequency, $timezone)
 
   # uncomment to run a scan on cloudapp start
-  # call run_scan($cm_instance_schedule_map, $ss_schedule_name, $scheduler_tags_exclude, $scheduler_dry_mode, $polling_frequency, $debug_mode, $timezone_override, $rrule_override)
+  # call run_scan($cm_instance_schedule_map, $ss_schedule_name, $scheduler_tags_exclude, $scheduler_dry_mode, $polling_frequency, $debug_mode, $timezone_override, $rrule_override, $email_recipients)
 end
 
 ###
