@@ -35,7 +35,6 @@ rs_ca_ver 20160622
 #        e.g. instance:schedule=7am-11pm Weekdays
 
 # TODO (enhancements)
-# - mailgun email when actions occurr in a scan (longer polling freqs. to avoid noise)
 # - implement option to schedule actions on managed servers only
 # - exclude instances managed by CloudApps (likely not trivial)
 # - consider a basic API script to create 'popular' schedules in SS
