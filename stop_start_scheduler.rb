@@ -786,16 +786,19 @@ define find_account_name() return $account_name do
   $account_name = rs_cm.get(href: $acct_href).name
 end
 
-define html_template() return $html_template do
-  
+define get_html_template() return $html_template do
+  $response = http_get(
+    url: 'https://raw.githubusercontent.com/rs-services/policy-cats/master/templates/email_template.html'
+  )
+  $html_template = $response['body']
 end
 
-define send_html_email($to, $from, $subject, $body) return $response do
+define send_html_email($to, $from, $subject, $html) return $response do
   $mailgun_endpoint = 'http://smtp.services.rightscale.com/v3/services.rightscale.com/messages'
 
   $to = gsub($to, "@", "%40")
   $from = gsub($from, "@", "%40")
-  $post_body = 'from=' + $from + '&to=' + $to + '&subject=' + $subject + '&html=' + $body
+  $post_body = 'from=' + $from + '&to=' + $to + '&subject=' + $subject + '&html=' + $html
 
   $response = http_post(
     url: $mailgun_endpoint,
@@ -809,12 +812,21 @@ define send_report($start_count, $stop_count, $email_recipients) do
 
   # email content
   $to = $email_recipients
-  $from = 'policy-cat@services.rightscale.com'
-  $subject = join(['[', $account_name, ']', ' Instance stop/start scheduler report'
+  $from = 'RightScale Policy <policy-cat@services.rightscale.com>'
+  $subject = join(['[', $account_name, ']', ' Instance stop/start scheduler report'])
 
-  $body = 'started ' + to_s($start_count) + ', stopped ' + to_s($stop_count)
+  call get_html_template() retrieve $html_template
 
-  call send_html_email($to, $from, $subject, $body) retrieve $response
+  $body_html = '<p>started ' + to_s($start_count) + ', stopped ' + to_s($stop_count) + '</p>'
+  $footer_text = 'Copyright &copy; RightScale 2017'
+
+  # render the template
+  $html = $html_template
+  $html = gsub($html, '{{title}}', $subject)
+  $html = gsub($html, '{{body}}', $body_html)
+  $html = gsub($html, '{{footer_text}}', $footer_text)
+
+  call send_html_email($to, $from, $subject, $html) retrieve $response
   call debug_audit_log('mail send response', to_s($response))
 
   if $response['code'] != 200
