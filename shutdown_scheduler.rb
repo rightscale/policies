@@ -13,8 +13,8 @@
 # limitations under the License.
 
 name 'Shutdown Scheduler'
-short_description "![RS Policy](https://goo.gl/RAcMcU =64x64)
-Stops or terminates instances based on existance of specific tags containing date and time."
+short_description "![RS Policy](https://goo.gl/RAcMcU =64x64)\n
+Stops or terminates instances based on the existance of specific tags containing a date and time."
 long_description "![RS Policy](https://goo.gl/RAcMcU =64x64)
 This automated policy CloudApp will find instances specifically tagged for shutdown and or terminate.
 
@@ -25,7 +25,7 @@ To be a candidate for actions managed by this CloudApp,
 - instances must have a tag matching instance:shutdown_datetime or instance:terminate_datetime
 with a date stamp set as the value.
 - A UTC/GMT offset (+1000) is optionally supplied to ensure the action occurs at UTC + the offset.
- 
+
 # for example:
 ```sh
     instance:shutdown_datetime=<YYYY/MM/DD hh:mm AM|PM +0000>
