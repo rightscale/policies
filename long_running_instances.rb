@@ -129,7 +129,7 @@ define find_long_running_instances($param_days_old) return $send_email do
         end
         #if we're unable to get the instance type, it will be listed as unknown in the email report.
         sub task_label: "retrieving instance type", on_error: error_instance_type() do
-        $instance_type = @instance.instance_type().description
+        $instance_type = @instance.instance_type().name
         end
 
         sub task_label: "retrieving instance state", on_error: error_instance_state() do
@@ -314,7 +314,7 @@ define error_instance_state() return $instance_state do
   $instance_state = "unknown"
   $_error_behavior = "skip"
 end
- 
+
 
   # Returns the RightScale account number in which the CAT was launched.
 define find_account_number() return $account_id do
