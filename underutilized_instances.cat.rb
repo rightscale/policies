@@ -18,15 +18,16 @@
 # Finds instances that are underutilized based on CPU and memory utilization then alerts and/or reports them.
 #
 
-name 'Underutilized Instance Runtime Policy'
+name 'Underutilized Instance Reporter'
 rs_ca_ver 20160622
 short_description "![RS Policy](https://goo.gl/RAcMcU =64x64)\n
-This automated policy CAT will identify instances that are deemed underutilized and send an alert or report."
+This automated policy CAT will identify instances that are deemed underutilized and send a report."
 
 long_description "![RS Policy](https://goo.gl/RAcMcU =64x64)\n
-This automated policy CloudApp will report on instances deemed underutilized by anaalyzing cloudwatch metrics for instances that have CPU and memory utilization below input thresholds.
+This automated policy CloudApp will report on instances deemed underutilized
+by analyzing cloudwatch metrics for instances that have CPU utilization below input threshold.
 
-It is recommened to run this CloudApp with the Always On schedule
+It is recommended to run this CloudApp with the Always On schedule
 unless you want to explicitly exclude times that instances could be stopped.
 
 This app assumes you have the admin role on your account and have AWS_ACCESS_KEY_ID & AWS_SECRET_ACCESS_KEY set in RightScale credentials.
@@ -43,16 +44,16 @@ parameter 'low_cpu_threshold' do
   default '10'
 end
 
-parameter 'low_mem_threshold' do
-  category 'Advanced Options'
-  label 'Report on memory utilization below this percentage'
-  type 'number'
-  default '10'
-end
+#parameter 'low_mem_threshold' do
+#  category 'Advanced Options'
+#  label 'Report on memory utilization below this percentage'
+#  type 'number'
+#  default '10'
+#end
 
 parameter 'period' do
   category 'Advanced Options'
-  label 'sample period. Max datapoints is 1440. In combination with days_back reduce if error is returned.'
+  label 'sample period. Remember that the maximum datapoints returned from AWS CloudWatch is 1440. In combination with days to sample, reduce if error is returned.'
   type 'number'
   allowed_values 300, 3600
   default 3600
@@ -60,19 +61,11 @@ end
 
 parameter 'days_back' do
   category 'Advanced Options'
-  label 'Number of days to sample. Max datapoints is 1440. In combination with period reduce if error is returned.'
+  label 'Number of days to sample. Remember that the maximum datapoints returned is 1440. In combination with sample period, reduce if error is returned.'
   type 'number'
   allowed_values 1, 2, 7, 14, 15, 63
   default 14
 end
-
-#parameter 'param_action' do
-#  category 'Instance'
-#  label 'Report Action'
-#  type 'string'
-#  allowed_values 'Alert Only','Email Only', 'Alert and Email'
-#  default 'Alert Only'
-#end
 
 parameter 'tags_to_exclude' do
   category 'Advanced Options'
@@ -87,23 +80,22 @@ parameter 'polling_frequency' do
   label 'Polling Frequency'
   description 'The frequency to run the report (in minutes). eg: daily=1440, weekly=10080'
   type 'number'
-  default 5
-  allowed_values 5, 1440, 10080
+  default 1440
+  allowed_values 1440, 10080
 end
 
 parameter 'debug_mode' do
   category 'Advanced Options'
   label 'Debug Mode'
   type 'string'
-  default 'true'
+  default 'false'
   allowed_values 'true', 'false'
 end
 
-parameter 'param_email' do
+parameter 'email_recipients' do
   category 'Email addresses'
   label 'Send report as email to (separate with commas):'
   type 'string'
-  default 'peter.allen@industrieit.com'
 end
 
 ##################
@@ -133,7 +125,8 @@ define debug_audit_log($summary, $details) do
   end
 end
 
-define find_underutilized_instances($tags_to_exclude,$period,$days_back,$low_cpu_threshold,$low_mem_threshold) return $instance_ids do
+define find_underutilized_instances($tags_to_exclude,$period,$days_back,$low_cpu_threshold) return $instance_ids do
+  #we may only want to consider operational instances but the options are here to include different instance states.
   $allowed_states = /^(running|operational|stranded|booting|pending|provisioned)$/
   @all_instances = rs_cm.instances.index(filter:["state==operational"])
   @all_instances = @all_instances + rs_cm.instances.index(filter:["state==booting"])
@@ -143,7 +136,7 @@ define find_underutilized_instances($tags_to_exclude,$period,$days_back,$low_cpu
   @all_instances = @all_instances + rs_cm.instances.index(filter:["state==provisioned"])
 
   if size(@all_instances[0][0]['links']) > 0
-    call audit_log(to_s(size(@all_instances)) + ' candidate instance(s) found', to_s(@all_instances))
+    call audit_log(to_s(size(@all_instances)) + ' instance/s found', to_s(@all_instances))
 
     $instance_ids=[]
     foreach @instance in @all_instances do
@@ -159,8 +152,7 @@ define find_underutilized_instances($tags_to_exclude,$period,$days_back,$low_cpu
         #call debug_audit_log('checking if instance ' + to_s($instance_href) + ' is excluded by tag ' + $tag_excluded, to_s(@instance))
         if contains?($instance_tags, [{ name: $tag_excluded }])
           $excluded = true
-          call debug_audit_log('instance ' + to_s($instance_href) + ' is excluded by tag ' + $tag_excluded, '')
-          call audit_log('No action taken due to tag exclusion', '')
+          call audit_log('instance ' + to_s($instance_href) + ' is excluded by tag ' + $tag_excluded, '')
         else
           $excluded = false
           call debug_audit_log('instance ' + to_s($instance_href) + ' is not excluded by tag ' + $tag_excluded, '')
@@ -171,13 +163,12 @@ define find_underutilized_instances($tags_to_exclude,$period,$days_back,$low_cpu
         #call debug_audit_log('instance details', to_s(to_object(@instance)))
         $resource_uid = @instance.resource_uid
         if @instance.state =~ $allowed_states
-          call audit_log('lets check cloudwatch utilization metrics for instance ' + $resource_uid, to_s(@instance))
+          call audit_log('Checking cloudwatch utilization metrics for AWS instance ' + $resource_uid, to_s(@instance))
           $cpu_metric = 'CPUUtilization'
-          $mem_metric = 'CPUUtilization'
-          call cloudwatch_api($resource_uid,$cpu_metric,$period,$days_back) retrieve $response,$average
-          call debug_audit_log('Average CPU utilization metrics for instance ' + $resource_uid + ' is ' + $average, to_s($response))
+          call cloudwatch_api($resource_uid,$cpu_metric,$period,$days_back) retrieve $average
+          call debug_audit_log('Average CPU utilization metrics for instance ' + $resource_uid + ' is ' + $average, '')
           if $average < $low_cpu_threshold
-            call audit_log('CPU utilization is below the ' + $low_cpu_threshold + '% threshold so a report will be emailed.', '')
+            call audit_log('CPU utilization for AWS instance ' + $resource_uid + ' is below the ' + $low_cpu_threshold + '% threshold so a report will be emailed.', '')
             #Add instance to an array so it can be sent in one report.
             $instance_ids << $resource_uid
           end
@@ -191,12 +182,13 @@ define find_underutilized_instances($tags_to_exclude,$period,$days_back,$low_cpu
   end
 end
 
-define cloudwatch_api($resource_uid,$cpu_metric,$period,$days_back) return $response,$average do
+define cloudwatch_api($resource_uid,$cpu_metric,$period,$days_back) return $average do
   $time = now()
   $before_time = $time - (3600 * 24 * $days_back)
   $end_time = strftime($time, "%Y-%m-%dT%H%%3A%M%%3A%SZ")
   $start_time = strftime($before_time, "%Y-%m-%dT%H%%3A%M%%3A%SZ")
-  $the_body = 'Statistics.member.1=Average&Namespace=AWS%2FEC2&Period=' + $period + '&Dimensions.member.1.Value=' + $resource_uid + '&Version=2010-08-01&StartTime=' + $start_time + '&Action=GetMetricStatistics&Dimensions.member.1.Name=InstanceId&EndTime=' + $end_time + '&MetricName=' + $cpu_metric
+  #$the_body = 'Statistics.member.1=Average&Namespace=AWS%2FEC2&Period=' + $period + '&Dimensions.member.1.Value=' + $resource_uid + '&Version=2010-08-01&StartTime=' + $start_time + '&Action=GetMetricStatistics&Dimensions.member.1.Name=InstanceId&EndTime=' + $end_time + '&MetricName=' + $cpu_metric
+  $the_body = 'Statistics.member.1=Maximum&Namespace=AWS%2FEC2&Period=' + $period + '&Dimensions.member.1.Value=' + $resource_uid + '&Version=2010-08-01&StartTime=' + $start_time + '&Action=GetMetricStatistics&Dimensions.member.1.Name=InstanceId&EndTime=' + $end_time + '&MetricName=' + $cpu_metric
   $params = {
     body: $the_body,
     headers: { 
@@ -208,19 +200,22 @@ define cloudwatch_api($resource_uid,$cpu_metric,$period,$days_back) return $resp
     url: 'https://monitoring.ap-southeast-2.amazonaws.com/'
   }
   
-  call post_http($params) retrieve $response,$GetMetricStatisticsResult
+  call post_http($params) retrieve $GetMetricStatisticsResult
   call debug_audit_log('GetMetricStatisticsResult is:', to_s($GetMetricStatisticsResult))
-  $Average_data = $GetMetricStatisticsResult[0]['Average']
+  #$the_data = $GetMetricStatisticsResult[0]['Average']
+  $the_data = $GetMetricStatisticsResult[0]['Maximum']
   $count = size($GetMetricStatisticsResult)
-  call debug_audit_log('number of response data records:' + $count, '')
   $total = 0
-  foreach $record in $Average_data do  
+  foreach $record in $the_data do  
     $total = $total + to_n($record)
   end
   $average = $total / $count
+  call debug_audit_log('number of response data records:' + $count, 'Sum of data before being averaged:' + $total)
 end
 
-define post_http($params) return $response,$GetMetricStatisticsResult on_error: retry do
+#This define is created to cater for a current need to retry the http post due to some issue that causes the response to contain html and not json data as expected.
+#Other appempts to make it work withing the cloudwatch_api define did not work.
+define post_http($params) return $GetMetricStatisticsResult on_error: retry do
   $response = http_post($params)
   $data = $response["body"]
   call debug_audit_log('data is:', to_s($data))
@@ -228,59 +223,49 @@ define post_http($params) return $response,$GetMetricStatisticsResult on_error: 
   $GetMetricStatisticsResult = $GetMetricStatisticsResponse['GetMetricStatisticsResult']['Datapoints']['member']
 end
 
-define generate_report($instance_ids,$low_cpu_threshold,$low_mem_threshold) return $send_email do
-  $table_start="<td align=%22left%22 valign=%22top%22>"
-  $table_end="</td>"
-  $send_email = "true"
-
+define generate_report($instance_ids,$low_cpu_threshold,$period,$days_back) return $send_email,$email_content do
+  $send_email = true
   $instanceids = []
   $list_of_instances = ''
   foreach $instance in $instance_ids do
-    $instance_table = "<tr>" + $table_start + to_s($instance) + $table_end + "</tr>"
+    $instance_table = "<td>" + to_s($instance) + "</td>"
     insert($list_of_instances, -1, $instance_table)
   end
   call debug_audit_log('list_of_instances:', to_s($list_of_instances))
 
   #form email
-  $email_msg = "RightScale discovered instances that are underutilised based on CPU utilization below " + $low_cpu_threshold + " percent and memory utilization below " + $low_mem_threshold + " percent."
+  $email_msg = "RightScale discovered instances that are underutilised based on CPU utilization below " + $low_cpu_threshold + "%, sampled every " + $period + " seconds, going back " + $days_back + " days."
 
-  $header="\<\!DOCTYPE html PUBLIC \"-\/\/W3C\/\/DTD XHTML 1.0 Transitional\/\/EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\"\>
+  $email_content="\<\!DOCTYPE html PUBLIC \"-\/\/W3C\/\/DTD XHTML 1.0 Transitional\/\/EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\"\>
     <html xmlns=\"http:\/\/www.w3.org\/1999\/xhtml\">
       <head>
         <meta http-equiv=%22Content-Type%22 content=%22text/html; charset=UTF-8%22 />
         <a href=%22//www.rightscale.com%22>
           <img src=%22https://assets.rightscale.com/6d1cee0ec0ca7140cd8701ef7e7dceb18a91ba20/web/images/logo.png%22 alt=%22RightScale Logo%22 width=%22200px%22 />
         </a>
-        <style></style>
+        <style>
+          table, th, td {
+            border: 2px solid black;
+            border-collapse: collapse;
+          }
+          th, td {
+            padding: 5px;
+            text-align: left;    
+          }
+        </style>
       </head>
       <body>
-        <table border=%220%22 cellpadding=%220%22 cellspacing=%220%22 height=%22100%%22 width=%22100%%22 id=%22bodyTable%22>
+        <h4>" + $email_msg + "</h4>
+        <table>
           <tr>
-            <td align=%22left%22 valign=%22top%22>
-              <table border=%220%22 cellpadding=%2220%22 cellspacing=%220%22 width=%22100%%22 id=%22emailContainer%22>
-                <tr>
-                  <td align=%22left%22 valign=%22top%22>
-                    <table border=%220%22 cellpadding=%2220%22 cellspacing=%220%22 width=%22100%%22 id=%22emailHeader%22>
-                      <tr>
-                        <td align=%22left%22 valign=%22top%22>
-                          " + $email_msg + "
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-                <tr>
-                  <td align=%22left%22 valign=%22top%22>
-                    <table border=%220%22 cellpadding=%2210%22 cellspacing=%220%22 width=%22100%%22 id=%22emailBody%22>
-                      <tr>
-                        <td align=%22left%22 valign=%22top%22>
-                          Instance ID
-                        </td>"
-
-  $footer="</tr></table></td></tr><tr><td align=%22left%22 valign=%22top%22><table border=%220%22 cellpadding=%2220%22 cellspacing=%220%22 width=%22100%%22 id=%22emailFooter%22><tr><td align=%22left%22 valign=%22top%22>
-             This report was automatically generated by a policy template Instance Runtime Policy your organization has defined in RightScale.
-           </td></tr></table></td></tr></table></td></tr></table></body></html>"
-  $$email_body = $header + $list_of_instances + $footer
+            <th>AWS Instance ID</th>
+          </tr>
+          <tr>" + $list_of_instances + "</tr>
+        </table>
+        </br>
+        <h6>This report was automatically generated by a policy template Instance Runtime Policy your organization has defined in RightScale.</h6>
+      </body>
+    <html>"
 end
 
 define handle_error() do
@@ -289,21 +274,21 @@ define handle_error() do
   $_error_behavior = "skip"
 end
 
-define send_email_mailgun($to) do
+define send_email_mailgun($to,$email_content) do
   $mailgun_endpoint = "http://smtp.services.rightscale.com/v3/services.rightscale.com/messages"
   call find_account_name() retrieve $account_name
   $to = gsub($to,"@","%40")
   $subject = "Underutilised Instance Report"
   $text = "You have the following underutilised instances"
 
-  $post_body="from=policy-cat%40services.rightscale.com&to=" + $to + "&subject=[" + $account_name + "] " + $subject + "&html=" + $$email_body
+  $post_body="from=policy-cat%40services.rightscale.com&to=" + $to + "&subject=[" + $account_name + "] " + $subject + "&html=" + $email_content
 
   $$response = http_post(
      url: $mailgun_endpoint,
      headers: { "content-type": "application/x-www-form-urlencoded"},
      body: $post_body
   )
-  call audit_log('email sent to: ' + gsub($to, "%40","@"), $post_body)
+  call audit_log('email sent to: ' + gsub($to, "%40","@"), $email_content)
 end
 
 define error_GetMetricStatisticsResponse() return $GetMetricStatisticsResult do
@@ -348,7 +333,7 @@ define get_my_timezone() return $timezone do
   $timezone = @user_prefs.value
 end
 
-define run_scan($polling_frequency, $period, $days_back, $low_cpu_threshold, $low_mem_threshold, $tags_to_exclude, $debug_mode, $param_email) do
+define run_scan($polling_frequency, $period, $days_back, $low_cpu_threshold, $tags_to_exclude, $debug_mode, $email_recipients) do
   call audit_log('instance scan started', '')
 
   if $debug_mode == 'true'
@@ -362,20 +347,20 @@ define run_scan($polling_frequency, $period, $days_back, $low_cpu_threshold, $lo
 
   call get_my_timezone() retrieve $timezone
 
-  call find_underutilized_instances($tags_to_exclude,$period,$days_back,$low_cpu_threshold,$low_mem_threshold) retrieve $instance_ids
+  call find_underutilized_instances($tags_to_exclude,$period,$days_back,$low_cpu_threshold) retrieve $instance_ids
   call audit_log('instance ids', to_s($instance_ids))
-  call generate_report($instance_ids,$low_cpu_threshold,$low_mem_threshold) retrieve $send_email
+  call generate_report($instance_ids,$low_cpu_threshold,$period,$days_back) retrieve $send_email,$email_content
 
   sleep(20)
-  if $send_email == "true"
-    call send_email_mailgun($param_email)
+  if $send_email == true
+    call send_email_mailgun($email_recipients,$email_content)
   end
 
 end
 ###
 # Launch Definition
 ###
-define launch_scheduler($polling_frequency, $low_cpu_threshold, $low_mem_threshold, $period, $days_back, $tags_to_exclude, $param_email, $debug_mode) do
+define launch_scheduler($polling_frequency, $low_cpu_threshold, $period, $days_back, $tags_to_exclude, $email_recipients, $debug_mode) do
   call get_my_timezone() retrieve $timezone
   call audit_log('using timezone: ' + $timezone, $timezone)
   call setup_scheduled_scan($polling_frequency, $timezone)
