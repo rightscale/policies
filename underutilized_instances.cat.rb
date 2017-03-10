@@ -24,13 +24,13 @@ short_description "![RS Policy](https://goo.gl/RAcMcU =64x64)\n
 This automated policy CAT will identify instances that are deemed underutilized and send a report."
 
 long_description "![RS Policy](https://goo.gl/RAcMcU =64x64)\n
-This automated policy CloudApp will report on instances deemed underutilized
-by analyzing cloudwatch metrics for instances that have CPU utilization below input threshold.
+This automated policy CloudApp will report underutilised instances by
+analyzing cloudwatch metrics that have CPU utilization below input threshold.\n
 
 It is recommended to run this CloudApp with the Always On schedule
-unless you want to explicitly exclude times that instances could be stopped.
+unless you want to explicitly exclude times that instances could be stopped.\n
 
-This app assumes you have the admin role on your account and have AWS_ACCESS_KEY_ID & AWS_SECRET_ACCESS_KEY set in RightScale credentials.
+**This app assumes you have the admin role on your account and have AWS&#95;ACCESS&#95;KEY&#95;ID & AWS&#95;SECRET&#95;ACCESS&#95;KEY set in RightScale credentials.**
 "
 
 ##################
@@ -81,7 +81,7 @@ parameter 'polling_frequency' do
   description 'The frequency to run the report (in minutes). eg: daily=1440, weekly=10080'
   type 'number'
   default 1440
-  allowed_values 1440, 10080
+  allowed_values 5, 1440, 10080
 end
 
 parameter 'debug_mode' do
@@ -118,7 +118,7 @@ define debug_audit_log($summary, $details) do
       notify: "None",
       audit_entry: {
         auditee_href: @@deployment,
-        summary: $summary,
+        summary: '[debug] ' + $summary,
         detail: $details
       }
     )
@@ -135,6 +135,10 @@ define find_underutilized_instances($tags_to_exclude,$period,$days_back,$low_cpu
   @all_instances = @all_instances + rs_cm.instances.index(filter:["state==running"])
   @all_instances = @all_instances + rs_cm.instances.index(filter:["state==provisioned"])
 
+  #when working this will give the option to retrieve instances directly from an AWS ec2 describe instances api call.
+  #call ec2_api() retrieve $list_of_instances
+  #call debug_audit_log('list_of_instances:', to_s($list_of_instances))
+
   if size(@all_instances[0][0]['links']) > 0
     call audit_log(to_s(size(@all_instances)) + ' instance/s found', to_s(@all_instances))
 
@@ -144,7 +148,7 @@ define find_underutilized_instances($tags_to_exclude,$period,$days_back,$low_cpu
       call debug_audit_log('instance_href: ' + to_s($instance_href), to_s(@instance))
       $resource_tags = rs_cm.tags.by_resource(resource_hrefs: [@instance.href])
       $instance_tags = first(first($resource_tags))['tags']
-      call debug_audit_log('instance_tags: ' + to_s($instance_tags), to_s($resource_tags))
+      call debug_audit_log('instance_tags: ', to_s($instance_tags))
 
       $tags_excluded = split($tags_to_exclude, ',')
 
@@ -182,6 +186,35 @@ define find_underutilized_instances($tags_to_exclude,$period,$days_back,$low_cpu
   end
 end
 
+define ec2_api() return $list_of_instances do
+  $the_body = 'Action=DescribeInstances&Version=2016-11-15'
+  $params = {
+    body: $the_body,
+    signature: { 'type': 'aws' },
+    url: 'https://ec2.ap-southeast-2.amazonaws.com'
+  }
+  call ec2_post($params) retrieve $body_data,$list_of_instances
+  call debug_audit_log('DescribeInstances data:', to_s($body_data))
+  #call debug_audit_log('list_of_instances:', to_s($list_of_instances))
+end
+
+#This define is created to cater for a current need to retry the http post due to some issue that causes the response to contain html and not json data as expected.
+#Other attempts to make it work within the ec2_api define did not work.
+define ec2_post($params) return $body_data,$list_of_instances on_error: retry do
+  $response = http_post($params)
+  $body_data = $response["body"]
+  call debug_audit_log('body_data is:', to_s($body_data))
+  $body = $response['body']
+  $DescribeInstancesResponse = $body['DescribeInstancesResponse']
+  #$instanceId = $DescribeInstancesResponse['reservationSet']['item']['instancesSet']['item']['instanceId']
+  $reservationSet = $DescribeInstancesResponse['reservationSet']['item']
+  $list_of_instances = []
+  foreach $reservation in $reservationSet do
+    $instanceId = $reservation['instancesSet']['item']['instanceId']
+    $list_of_instances << $instanceId
+  end
+end
+
 define cloudwatch_api($resource_uid,$cpu_metric,$period,$days_back) return $average do
   $time = now()
   $before_time = $time - (3600 * 24 * $days_back)
@@ -190,12 +223,12 @@ define cloudwatch_api($resource_uid,$cpu_metric,$period,$days_back) return $aver
   #$the_body = 'Statistics.member.1=Average&Namespace=AWS%2FEC2&Period=' + $period + '&Dimensions.member.1.Value=' + $resource_uid + '&Version=2010-08-01&StartTime=' + $start_time + '&Action=GetMetricStatistics&Dimensions.member.1.Name=InstanceId&EndTime=' + $end_time + '&MetricName=' + $cpu_metric
   $the_body = 'Statistics.member.1=Maximum&Namespace=AWS%2FEC2&Period=' + $period + '&Dimensions.member.1.Value=' + $resource_uid + '&Version=2010-08-01&StartTime=' + $start_time + '&Action=GetMetricStatistics&Dimensions.member.1.Name=InstanceId&EndTime=' + $end_time + '&MetricName=' + $cpu_metric
   $params = {
-    body: $the_body,
-    headers: { 
+    headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
       'User-Agent': 'aws-cli/1.11.56 Python/2.7.10 Darwin/16.4.0 botocore/1.5.19',
       'Host': 'monitoring.ap-southeast-2.amazonaws.com'
     },
+    body: $the_body,
     signature: { 'type': 'aws' },
     url: 'https://monitoring.ap-southeast-2.amazonaws.com/'
   }
@@ -228,7 +261,7 @@ define generate_report($instance_ids,$low_cpu_threshold,$period,$days_back) retu
   $instanceids = []
   $list_of_instances = ''
   foreach $instance in $instance_ids do
-    $instance_table = "<td>" + to_s($instance) + "</td>"
+    $instance_table = "<tr><td>" + to_s($instance) + "</td></tr>"
     insert($list_of_instances, -1, $instance_table)
   end
   call debug_audit_log('list_of_instances:', to_s($list_of_instances))
