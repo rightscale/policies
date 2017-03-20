@@ -49,7 +49,7 @@ rs_ca_ver 20160622
 parameter 'ss_schedule_name' do
   category 'Scheduler Policy'
   label 'Schedule Name'
-  description "The self-service schedule to use (this needs to match an existing schedule within the 'Schedule Manager')."
+  description "json:{\"definition\":\"get_ss_schedules\", \"description\": \"The self-service schedule to use (this needs to match an existing schedule within the 'Schedule Manager').\"}"
   type 'string'
   min_length 1
 end
@@ -751,6 +751,15 @@ end
 define get_schedule_by_name($ss_schedule_name) return @schedule do
   @schedules = rs_ss.schedules.index()
   @schedule = select(@schedules, { "name": $ss_schedule_name })
+end
+
+define get_ss_schedules() return $values do
+  @schedules = rs_ss.schedules.get()
+  $schedules = []
+  foreach @schedule in @schedules do
+    $schedules << @schedule.name
+	end
+  $values = $schedules
 end
 
 define window_active($start_hour, $start_minute, $start_rule, $stop_hour, $stop_minute, $stop_rule, $tz) return $window_active do
