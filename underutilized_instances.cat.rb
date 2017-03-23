@@ -45,18 +45,11 @@ end
 
 parameter "action" do
   category "Advanced Options"
-  label "Action. What to do when underutilized instances are detected"
+  label "Action."
+  description "What to do when underutilized instances are detected."
   type "string"
   allowed_values "email_only","shutdown_and_email","terminate_and_email"
   default "email_only"
-end
-
-parameter "clouds" do
-  category "Advanced Options"
-  label "what clouds?. Let me know what coulds you want scanned."
-  type "string"
-  allowed_values "AWS","GoogleCompute","Azure"
-  default "AWS"
 end
 
 parameter 'low_cpu_threshold' do
@@ -68,7 +61,8 @@ end
 
 parameter 'period' do
   category 'Advanced Options'
-  label 'sample period. Remember that the maximum datapoints returned from AWS CloudWatch is 1440. In combination with days to sample, reduce if error is returned.'
+  label 'sample period.'
+  description 'Remember that the maximum datapoints returned from AWS CloudWatch is 1440. In combination with days to sample, reduce if error is returned. Azure will default to 1 hour'
   type 'number'
   allowed_values 300, 3600
   default 3600
@@ -76,7 +70,8 @@ end
 
 parameter 'days_back' do
   category 'Advanced Options'
-  label 'Number of days to sample. Remember that the maximum datapoints returned is 1440. In combination with sample period, reduce if error is returned.'
+  label 'Number of days to sample.'
+  description 'Remember that the maximum datapoints returned from AWS CloudWatch is 1440. In combination with sample period, reduce if error is returned.'
   type 'number'
   allowed_values 1, 2, 4, 7, 14, 15, 63
   default 14
@@ -99,6 +94,14 @@ parameter 'polling_frequency' do
   allowed_values 5, 1440, 10080
 end
 
+parameter 'allowed_states' do
+  category 'Advanced Options'
+  label 'Allowed Instance states'
+  description 'Include instances in these states.'
+  type 'list'
+  default 'running|operational|stranded|booting|pending'
+end
+
 parameter 'dry_mode' do
   category 'Advanced Options'
   label 'Dry Mode'
@@ -114,6 +117,30 @@ parameter 'debug_mode' do
   default 'false'
   allowed_values 'true', 'false'
 end
+
+parameter 'gcp_api_key' do
+  category 'Google Cloud Platform Options'
+  label 'Enter your API key for use with GCP. This is required to access GCP CPU metrics.'
+  description 'Enter your API key for use with GCP. This is required to access GCP CPU metrics.'
+  type 'string'
+  no_echo true
+end
+
+parameter 'azure_cred_id' do
+  category 'Azure Options'
+  label 'Enter your Azure client ID (Application ID) as a credential store variable.'
+  description 'This is the name of a record that has been added to the RightScale credentials store.'
+  type 'string'
+end
+
+parameter 'azure_cred_secret' do
+  category 'Azure Options'
+  label 'Enter your Azure client ID secret key as a credential store variable.'
+  description 'This is the name of a record that has been added to the RightScale credentials store'
+  type 'string'
+  no_echo true
+end
+
 
 ##################
 # Definitions    #
@@ -142,13 +169,18 @@ define debug_audit_log($summary, $details) do
   end
 end
 
-define get_instances() return $instances do
-  #$allowed_states = /^(running|operational|stranded|booting|pending)$/
-  $allowed_states = /^(running|operational|stranded)$/
+define get_instances($allowed_states) return $instances do
+  $allowed_states = '/^(' + $allowed_states + ')$/'
   call find_shard() retrieve $shard_number
   call find_account_number() retrieve $account_number
 
-  $rs_endpoint = "https://us-"+$shard_number+".rightscale.com"
+  $shard_map = {
+    "3": "us-3.rightscale.com",
+    "4": "us-4.rightscale.com",
+    "10": "telstra-10.rightscale.com"
+  }
+
+  $rs_endpoint = 'https://' + $shard_map[$shard_number]
 
   $response = http_get(
     url: $rs_endpoint+"/api/instances?view=full",
@@ -164,7 +196,15 @@ define get_instances() return $instances do
     if $instance['state'] =~ $allowed_states
       $cloud_id = split($instance['href'], '/')[3]
       $server_access_link_root = "https://my.rightscale.com/acct/" + $account_number + "/clouds/" + $cloud_id + "/instances/" + $instance['legacy_id']
-      $instances << {name: $instance['name'], href: $instance['href'], resource_uid: $instance['resource_uid'], state: $instance['state'], tags:$instance['tags'], server_access_link_root: $server_access_link_root}
+      $instances << {
+        name: $instance['name'],
+        href: $instance['href'],
+        resource_uid: $instance['resource_uid'],
+        state: $instance['state'],
+        tags: $instance['tags'],
+        cloud: $instance['links']['cloud']['name'],
+        server_access_link_root: $server_access_link_root
+      }
     end
   end
   $instance_count = size($instances)
@@ -172,12 +212,13 @@ define get_instances() return $instances do
 end
 
 define find_underutilized_instances($tags_to_exclude, $period, $days_back, $low_cpu_threshold) return $underutilized_instances do
-  call get_instances() retrieve $instances
+  call get_instances($allowed_states) retrieve $instances
 
   if size($instances[0]) > 0
     $underutilized_instances=[]
     foreach $instance in $instances do
       $instance_href = $instance['href']
+      $instance_cloud = $instance['cloud']
       $instance_tags=[]
       $instance_tags << $instance['tags']
       call debug_audit_log('instance_tags for instance:' + to_s($instance_href), to_s($instance_tags) )
@@ -194,8 +235,15 @@ define find_underutilized_instances($tags_to_exclude, $period, $days_back, $low_
         call debug_audit_log('instance ' + to_s($instance_href) + ' is not excluded by tag', '')
         $resource_uid = $instance['resource_uid']
         call audit_log('Checking cloudwatch utilization metrics for AWS instance ' + $resource_uid, to_s($instance))
-        $cpu_metric = 'CPUUtilization'
-        call cloudwatch_api($resource_uid,$cpu_metric,$period,$days_back) retrieve $average
+        if $instance_cloud =~ 'AWS'
+          call get_cloudwatch_cpu_metrics($resource_uid,$period,$days_back) retrieve $average
+        elsif $instance_cloud =~ 'Google'
+          call gcloud_api($resource_uid,$period,$days_back) retrieve $average
+        elsif $instance_cloud =~ 'Azure'
+          call get_azure_cpu_metrics($resource_uid,$period,$days_back) retrieve $average
+        else
+          call audit_log('Cloud ' + to_s($instace_cloud) + ' is excluded', '')
+        end
         call debug_audit_log('Average CPU utilization metrics for instance ' + $resource_uid + ' is ' + $average, '')
         if $average < $low_cpu_threshold
           call audit_log('CPU utilization for AWS instance ' + $resource_uid + ' is below the ' + $low_cpu_threshold + '% threshold so a report will be sent.', '')
@@ -211,7 +259,8 @@ define find_underutilized_instances($tags_to_exclude, $period, $days_back, $low_
   end
 end
 
-define cloudwatch_api($resource_uid,$cpu_metric,$period,$days_back) return $average do
+define get_cloudwatch_cpu_metrics($resource_uid,$period,$days_back) return $average do
+  $cpu_metric = 'CPUUtilization'
   $time = now()
   $before_time = $time - (3600 * 24 * $days_back)
   $end_time = strftime($time, "%Y-%m-%dT%H%%3A%M%%3A%SZ")
@@ -228,7 +277,7 @@ define cloudwatch_api($resource_uid,$cpu_metric,$period,$days_back) return $aver
     signature: { 'type': 'aws' },
     url: 'https://monitoring.ap-southeast-2.amazonaws.com/'
   }
-  
+
   call cloudwatch_post($params) retrieve $result_data
   call debug_audit_log('GetMetricStatisticsResult is:', to_s($result_data))
   #$the_data = $result_data[0]['Average']
@@ -255,7 +304,6 @@ end
 define get_html_template() return $html_template do
   $response = http_get(
     url: 'https://raw.githubusercontent.com/rs-services/policy-cats/master/templates/email_template.html'
-    #url: 'https://raw.githubusercontent.com/drtywheels/policy-cats/email_template_update/templates/email_template.html'
   )
   $html_template = $response['body']
 end
@@ -306,6 +354,147 @@ define generate_report($underutilized_instances,$low_cpu_threshold,$period,$days
     raise 'Failed to send email report: ' + to_s($response)
   end
 end
+
+
+define get_azure_subscription_id() return $subscription_id,$tenant_id do
+  call find_shard() retrieve $shard_number
+  call find_account_number() retrieve $account_id
+
+  $shard_map = {
+    "3": "us-3.rightscale.com",
+    "4": "us-4.rightscale.com",
+    "10": "telstra-10.rightscale.com"
+  }
+
+  @cloud = first(find("clouds", { "name": "AzureRM" }))
+  $url = 'https://' + $shard_map[$shard_number] + '/acct/' +
+        $account_id + '/clouds/' + last(split(@cloud.href, '/')) + '/info'
+
+  $response = http_get(url: $url, headers: {"X-Requested-With": "XMLHttpRequest"})
+
+  $body = $response['body']
+
+  $lines = lines($body)
+
+  foreach $line in $lines do
+    if include?($line, 'Subscription id')
+      $subscription_id = strip(gsub(gsub($line, '<tr class="odd text_row"><td class="key">Subscription id</td><td>', '') , '</td></tr>', ''))
+    end
+    if include?($line, 'Active Directory ID')
+      $tenant_id = strip(gsub(gsub($line, '<tr class="odd text_row"><td class="key">Active Directory ID</td><td>', '') , '</td></tr>', ''))
+    end
+  end
+end
+
+define get_azure_api_token($client_id, $client_secret) return $auth_response,$subscription_id,$tenant_id do
+  call get_azure_subscription_id() retrieve $subscription_id,$tenant_id
+
+  $resource = "https://management.core.windows.net/"
+
+  # Get Active Directory token
+  $params_get_ad_token = {
+    verb: "post",
+    host: "login.windows.net",
+    https: true,
+    href: "/" + $tenant_id + "/oauth2/token",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: "grant_type=client_credentials&client_id=" + $client_id + "&client_secret=" + $client_secret + "&resource=" + $resource
+  }
+
+  $auth_response = http_request($params_get_ad_token)
+end
+
+
+define get_azure_cpu_metrics($resource_uid,$period,$days_back) return $average do
+  $client_id = cred($azure_cred_id)
+  $client_secret = cred($azure_cred_secret)
+
+  call get_azure_api_token($client_id, $client_secret) retrieve $auth_response,$subscription_id,$tenant_id
+
+  $auth_responseBody = $auth_response["body"]
+  $access_token = $auth_responseBody["access_token"]
+
+  #$resourceGroupName = "DAP"
+  $time = now()
+  $before_time = $time - (3600 * 24 * $days_back)
+  $end_time = strftime($time, "%Y-%m-%dT%H%%3A%M%%3A%S.0000000Z")
+  $start_time = strftime($before_time, "%Y-%m-%dT%H%%3A%M%%3A%S.0000000Z")
+
+  if $period == "300"
+    $timegrain == "5M"
+  elsif $period == "3600"
+    # 1D is not a valid time grain so will just go with 1H regardless.
+    $timegrain == "1H"
+  end
+
+  if $auth_response["code"] == 200 # Success
+    call audit_log("Get AD Token successful", to_s($response["code"]))
+
+    # Get instances from Azure
+    $params_get_instances = {
+      verb: "get",
+      host: "management.azure.com",
+      https: true,
+      #href: "/subscriptions/" + $subscription_id + "/resourceGroups/" + $resourceGroupName + "/providers/Microsoft.Compute/virtualmachines?api-version=2016-04-30-preview",
+      href: "/subscriptions/" + $subscription_id + "/providers/Microsoft.Compute/virtualmachines?api-version=2016-04-30-preview",
+      headers: {
+        "content-type": "application/json",
+        "Authorization": "Bearer " + $access_token
+      }
+    }
+
+    $response = http_request($params_get_instances)
+    $responseBody = $response["body"]
+    $instances = []
+    foreach $instance in $responseBody['value'] do
+      $id = $instance["properties"]["vmId"]
+      $href = $instance["id"]
+      $name = $instance["name"]
+      $instances << { id: $id, href: $href, name: $name }
+    end
+    if $response["code"] == 200 # Success
+      call audit_log("Get instances successful", to_s($response["code"]))
+      # Done!
+    else # Fail
+      call audit_log("Get instances failed", to_s($response))
+    end
+
+    $filter = "name.value%20eq%20%27Percentage%20CPU%27%20and%20timeGrain%20eq%20duration%27PT" + $timegrain + "%27%20and%20startTime%20eq%20" + $start_time + "%20and%20endTime%20eq%20" + $end_time
+    foreach $instance in $instances do
+      $params_get_instance_metrics = {
+        verb: "get",
+        host: "management.azure.com",
+        https: true,
+        href: $instance['href'] + "/providers/microsoft.insights/metrics?api-version=2016-09-01&$filter=" + $filter,
+        headers: {
+          "content-type": "application/json",
+          "Authorization": "Bearer " + $access_token
+        }
+     }
+      $metrics_response = http_request($params_get_instance_metrics)
+      $metrics_responseBody = $metrics_response["body"]
+      $records = $metrics_responseBody['value']
+      $average = []
+      $total = 0
+      $count = size($records[0]['data'])
+      foreach $record in $records[0]['data'] do
+        $average = $record['average']
+        $total = $total + to_n($average)
+      end
+      $average = $total / $count
+
+    end
+    if $metrics_response["code"] == 200 # Success
+      call audit_log("Get metrics successful", to_s($metrics_response["code"]))
+      # Done!
+    else # Fail
+      call audit_log("Get metrics failed", to_s($metrics_response))
+    end
+  else # Fail
+    call audit_log("Get authentication token failed", to_s($auth_response))
+  end
+end
+
 
 define send_html_email($to, $from, $subject, $html) return $response do
   $mailgun_endpoint = 'http://smtp.services.rightscale.com/v3/services.rightscale.com/messages'
@@ -376,7 +565,7 @@ define get_my_timezone() return $timezone do
   $timezone = @user_prefs.value
 end
 
-define run_scan($polling_frequency, $period, $days_back, $low_cpu_threshold, $tags_to_exclude, $debug_mode, $dry_mode, $action, $email_recipients) do
+define run_scan($polling_frequency, $period, $days_back, $low_cpu_threshold, $tags_to_exclude, $debug_mode, $dry_mode, $action, $email_recipients, $azure_cred_id, $azure_cred_secret, $allowed_states) do
   call audit_log('instance scan started', '')
 
   if $debug_mode == 'true'
@@ -391,6 +580,7 @@ define run_scan($polling_frequency, $period, $days_back, $low_cpu_threshold, $ta
   call get_my_timezone() retrieve $timezone
 
   call find_underutilized_instances($tags_to_exclude,$period,$days_back,$low_cpu_threshold) retrieve $underutilized_instances
+
   if size($underutilized_instances) > 0
     call audit_log('click to see underutilized instances', to_s($underutilized_instances))
     call action_underutilized($action, $underutilized_instances)
@@ -420,7 +610,7 @@ end
 ###
 # Launch Definition
 ###
-define launch_scheduler($polling_frequency, $low_cpu_threshold, $period, $days_back, $tags_to_exclude, $email_recipients, $debug_mode, $dry_mode, $action) do 
+define launch_scheduler($polling_frequency, $low_cpu_threshold, $period, $days_back, $tags_to_exclude, $email_recipients, $debug_mode, $dry_mode, $action, $azure_cred_id, $azure_cred_secret, $allowed_states) do
   call get_my_timezone() retrieve $timezone
   call audit_log('using timezone: ' + $timezone, $timezone)
   call setup_scheduled_scan($polling_frequency, $timezone)
