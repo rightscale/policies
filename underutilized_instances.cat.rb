@@ -138,7 +138,6 @@ parameter 'azure_cred_secret' do
   label 'Enter your Azure client ID secret key as a credential store variable.'
   description 'This is the name of a record that has been added to the RightScale credentials store'
   type 'string'
-  no_echo true
 end
 
 
@@ -287,7 +286,8 @@ define get_cloudwatch_cpu_metrics($resource_uid,$period,$days_back) return $aver
   foreach $record in $the_data do  
     $total = $total + to_n($record)
   end
-  $average = $total / $count
+  #$average = $total / $count
+  $average = div($total, $count)
   call debug_audit_log('number of response data records:' + $count, 'Sum of data before being averaged:' + $total)
 end
 
@@ -379,15 +379,19 @@ define get_azure_subscription_id() return $subscription_id,$tenant_id do
   foreach $line in $lines do
     if include?($line, 'Subscription id')
       $subscription_id = strip(gsub(gsub($line, '<tr class="odd text_row"><td class="key">Subscription id</td><td>', '') , '</td></tr>', ''))
+      #call debug_audit_log('Azure Subscription ID is', to_s($subscription_id))
     end
     if include?($line, 'Active Directory ID')
       $tenant_id = strip(gsub(gsub($line, '<tr class="odd text_row"><td class="key">Active Directory ID</td><td>', '') , '</td></tr>', ''))
+      #call debug_audit_log('Azure Tenant ID is', to_s($tenant_id))
     end
   end
 end
 
-define get_azure_api_token($client_id, $client_secret) return $auth_response,$subscription_id,$tenant_id do
+define get_azure_api_token($client_id, $client_secret) return $auth_response do
   call get_azure_subscription_id() retrieve $subscription_id,$tenant_id
+  call debug_audit_log('get_azure_api_token Azure Tenant ID is', to_s($tenant_id))
+  call debug_audit_log('get_azure_api_token Azure Subscription ID is', to_s($subscription_id))
 
   $resource = "https://management.core.windows.net/"
 
@@ -402,6 +406,7 @@ define get_azure_api_token($client_id, $client_secret) return $auth_response,$su
   }
 
   $auth_response = http_request($params_get_ad_token)
+  call debug_audit_log('click for Azure auth response', to_s($auth_response))
 end
 
 
@@ -409,29 +414,34 @@ define get_azure_cpu_metrics($resource_uid,$period,$days_back) return $average d
   $client_id = cred($azure_cred_id)
   $client_secret = cred($azure_cred_secret)
 
-  call get_azure_api_token($client_id, $client_secret) retrieve $auth_response,$subscription_id,$tenant_id
+  call get_azure_api_token($client_id, $client_secret) retrieve $auth_response
+  #This shouldn't be necessary but needs testing
+  call get_azure_subscription_id() retrieve $subscription_id,$tenant_id
+  call debug_audit_log('get_azure_cpu_metrics Azure Tenant ID is', to_s($tenant_id))
+  call debug_audit_log('get_azure_cpu_metrics Azure Subscription ID is', to_s($subscription_id))
 
   $auth_responseBody = $auth_response["body"]
   $access_token = $auth_responseBody["access_token"]
 
-  #$resourceGroupName = "DAP"
   $time = now()
   $before_time = $time - (3600 * 24 * $days_back)
-  $end_time = strftime($time, "%Y-%m-%dT%H%%3A%M%%3A%S.0000000Z")
   $start_time = strftime($before_time, "%Y-%m-%dT%H%%3A%M%%3A%S.0000000Z")
+  $end_time = strftime($time, "%Y-%m-%dT%H%%3A%M%%3A%S.0000000Z")
 
   if $period == "300"
-    $timegrain == "5M"
+    $timegrain = "5M"
   elsif $period == "3600"
     # 1D is not a valid time grain so will just go with 1H regardless.
-    $timegrain == "1H"
+    $timegrain = "1H"
+  else
+    $timegrain = "1H"
   end
 
   if $auth_response["code"] == 200 # Success
-    call audit_log("Get AD Token successful", to_s($response["code"]))
+    call audit_log("Get AD Token successful", to_s($auth_response["code"]))
 
     # Get instances from Azure
-    $params_get_instances = {
+    $params_get_vms = {
       verb: "get",
       host: "management.azure.com",
       https: true,
@@ -443,54 +453,59 @@ define get_azure_cpu_metrics($resource_uid,$period,$days_back) return $average d
       }
     }
 
-    $response = http_request($params_get_instances)
-    $responseBody = $response["body"]
-    $instances = []
-    foreach $instance in $responseBody['value'] do
-      $id = $instance["properties"]["vmId"]
-      $href = $instance["id"]
-      $name = $instance["name"]
-      $instances << { id: $id, href: $href, name: $name }
-    end
-    if $response["code"] == 200 # Success
-      call audit_log("Get instances successful", to_s($response["code"]))
-      # Done!
-    else # Fail
-      call audit_log("Get instances failed", to_s($response))
-    end
-
-    $filter = "name.value%20eq%20%27Percentage%20CPU%27%20and%20timeGrain%20eq%20duration%27PT" + $timegrain + "%27%20and%20startTime%20eq%20" + $start_time + "%20and%20endTime%20eq%20" + $end_time
-    foreach $instance in $instances do
-      $params_get_instance_metrics = {
-        verb: "get",
-        host: "management.azure.com",
-        https: true,
-        href: $instance['href'] + "/providers/microsoft.insights/metrics?api-version=2016-09-01&$filter=" + $filter,
-        headers: {
-          "content-type": "application/json",
-          "Authorization": "Bearer " + $access_token
-        }
-     }
-      $metrics_response = http_request($params_get_instance_metrics)
-      $metrics_responseBody = $metrics_response["body"]
-      $records = $metrics_responseBody['value']
-      $average = []
-      $total = 0
-      $count = size($records[0]['data'])
-      foreach $record in $records[0]['data'] do
-        $average = $record['average']
-        $total = $total + to_n($average)
+    $vm_response = http_request($params_get_vms)
+    if $vm_response["code"] == 200 # Success
+      call audit_log("Get instances successful", to_s($vm_response["code"]))
+      $responseBody = $vm_response["body"]
+      $instances = []
+      foreach $instance in $responseBody['value'] do
+        $id = $instance["properties"]["vmId"]
+        $href = $instance["id"]
+        $name = $instance["name"]
+        $instances << { id: $id, href: $href, name: $name }
       end
-      $average = $total / $count
+      call debug_audit_log('click for get_azure_cpu_metrics instance list', to_s($instances))
+      call debug_audit_log('start_time:' + to_s($start_time) + ' end_time:' + to_s($end_time) + ' timegrain:' + $timegrain, '')
 
-    end
-    if $metrics_response["code"] == 200 # Success
-      call audit_log("Get metrics successful", to_s($metrics_response["code"]))
-      # Done!
+      $filter = "name.value%20eq%20%27Percentage%20CPU%27%20and%20timeGrain%20eq%20duration%27PT" + $timegrain + "%27%20and%20startTime%20eq%20" + $start_time + "%20and%20endTime%20eq%20" + $end_time
+      foreach $instance in $instances do
+        $params_get_instance_metrics = {
+          verb: "get",
+          host: "management.azure.com",
+          https: true,
+          href: $instance['href'] + "/providers/microsoft.insights/metrics?api-version=2016-09-01&$filter=" + $filter,
+          headers: {
+            "content-type": "application/json",
+            "Authorization": "Bearer " + $access_token
+          }
+       }
+        $metrics_response = http_request($params_get_instance_metrics)
+        if $metrics_response["code"] == 200 # Success
+          call audit_log("Get metrics successful", to_s($metrics_response["code"]))
+          # Done!
+          call debug_audit_log('click for metrics response', to_s($metrics_response))
+          $metrics_responseBody = $metrics_response["body"]
+          $records = $metrics_responseBody['value']
+          $average = []
+          $total = 0
+          $count = size($records[0]['data'])
+          foreach $record in $records[0]['data'] do
+            $average = $record['average']
+            $total = $total + to_n($average)
+          end
+          #$average = $total / $count
+          $average = div($total, $count)
+          call debug_audit_log('azure average before sub', to_s($average))
+          $average = to_n(sub(to_s($average), /[.][0-9]+$/, ""))
+          call debug_audit_log('azure average after sub', to_s($average))
+        else # Fail
+          call audit_log("Get metrics failed", to_s($metrics_response))
+        end
+      end
     else # Fail
-      call audit_log("Get metrics failed", to_s($metrics_response))
+      call audit_log("Get instances failed", to_s($vm_response))
     end
-  else # Fail
+  else
     call audit_log("Get authentication token failed", to_s($auth_response))
   end
 end
