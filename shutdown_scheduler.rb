@@ -190,9 +190,18 @@ define action_instance($search_tags) do
   end
 end
 
+define get_user_preference_infos() return @user_preference_infos do
+  @user_preference_infos = rs_ss.user_preference_infos.get(filter: ['user_id==me'])
+end
+
 define get_my_timezone() return $timezone do
-  @user_prefs = rs_ss.user_preferences.get(filter: ["user_id==me"])
-  $timezone = @user_prefs.value
+  @user_preference_infos = rs_ss.user_preference_infos.get(filter: ['user_id==me'])
+  @user_prefs = rs_ss.user_preferences.get(filter: ['user_id==me', 'user_preference_info_id==' + @user_preference_infos.id])
+  if @user_prefs.value
+    $timezone = @user_prefs.value
+  else
+    $timezone = @user_preference_infos.default_value
+  end
 end
 
 define run_scan($polling_frequency, $exclude_tags, $dry_mode, $debug_mode) do
