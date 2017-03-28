@@ -755,11 +755,7 @@ end
 
 define get_ss_schedules() return $values do
   @schedules = rs_ss.schedules.get()
-  $schedules = []
-  foreach @schedule in @schedules do
-    $schedules << @schedule.name
-	end
-  $values = $schedules
+  $values = @schedules.name[]
 end
 
 define window_active($start_hour, $start_minute, $start_rule, $stop_hour, $stop_minute, $stop_rule, $tz) return $window_active do
@@ -998,9 +994,18 @@ define run_scan($ss_schedule_name, $scheduler_tags_exclude, $scheduler_dry_mode,
   call audit_log('instance scan finished', '')
 end
 
+define get_user_preference_infos() return @user_preference_infos do
+  @user_preference_infos = rs_ss.user_preference_infos.get(filter: ['user_id==me'])
+end
+
 define get_my_timezone() return $timezone do
-  @user_prefs = rs_ss.user_preferences.get(filter: ["user_id==me"])
-  $timezone = @user_prefs.value
+  @user_preference_infos = rs_ss.user_preference_infos.get(filter: ['user_id==me'])
+  @user_prefs = rs_ss.user_preferences.get(filter: ['user_id==me', 'user_preference_info_id==' + @user_preference_infos.id])
+  if @user_prefs.value
+    $timezone = @user_prefs.value
+  else
+    $timezone = @user_preference_infos.default_value
+  end
 end
 
 define setup_scheduled_scan($polling_frequency, $timezone) do
