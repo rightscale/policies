@@ -1,15 +1,15 @@
 <img src="https://image.freepik.com/free-icon/white-house-building_318-37808.jpg" align="left" height="48" width="48">
 
-#RightScale Policy CAT Files
-##Overview
+# RightScale Policy CAT Files
+## Overview
 
 You can use Cloud Application Templates (CATs) in RightScale Self Service to automate policies. We have created sample policy CATs that you can use as a starting point. These are provided solely as samples under an Apache 2.0 open source license with no warranties.
 
 **Important: You should test these CATs to ensure they work for your needs.**
 
-##Sample Policy CATs
+## Sample Policy CATs
 
-###Unattached Volume Finder
+### Unattached Volume Finder
 **What it does**
 
 This policy CAT will search all your cloud accounts that are connected to the RightScale account where you are running the CAT. It will find unattached volumes that are have been unattached for longer than a specified number of days.
@@ -34,7 +34,8 @@ This policy CAT does not launch any instances, and so does not incur any cloud c
 
 
 
-###Instance Runtime Policy
+### Instance Runtime Policy
+
 **What it does**
 
 This policy CAT will search all your cloud accounts that are connected to the RightScale account where you are running the CAT. It will find instances that have been running for longer than a specified number of days.
@@ -63,7 +64,8 @@ Specify the days of the week that you want the CAT to run. For example, if you w
 This policy CAT does not launch any instances, and so does not incur any cloud costs.
 
 
-###How to Use
+### How to Use these CATs
+
 1. [Download the policy CAT file from GitHub.](https://github.com/rs-services/policy-cats)
 1. Make any desired changes to the policy CAT.
 3. Upload and test the policy CAT. Use the Alert only option during testing. **Do not choose Alert and Delete until you are confident you know what will be deleted.**
