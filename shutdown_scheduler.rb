@@ -18,28 +18,12 @@ Stops or terminates instances based on the existance of specific tags containing
 long_description "![RS Policy](https://goo.gl/RAcMcU =64x64)
 This automated policy CloudApp will find instances specifically tagged for shutdown and or terminate.
 
-It is recommened to run this CloudApp with the Always On schedule
-unless you want to explicitly exclude times that instances could be stopped.
+This policy CAT will find instances specifically tagged for shutdown or termination and applies that action once the shutdown date in the tag value is reached or exceeded.
 
-To be a candidate for actions managed by this CloudApp,
-- instances must have a tag matching instance:shutdown_datetime or instance:terminate_datetime
-with a date stamp set as the value.
-- A UTC/GMT offset (+1000) is optionally supplied to ensure the action occurs at UTC + the offset.
+It is recommended to run the CloudApp using the \"Always On\" schedule
+unless you want to explicitly exclude times that instances could be shutdown.
 
-# for example:
-```sh
-    instance:shutdown_datetime=<YYYY/MM/DD hh:mm AM|PM +0000>
-    e.g. instance:shutdown_datetime=2017/03/02 08:00 AM +1100
-```
-The +1100 is a UTC offset required so that the instance is actioned at the time specified in your local time not UTC.
-In this case the instance will be shutdown at 8am in the Australian Eastern Daylight Savings Timezone which is UTC +11hrs
-
-or
-```sh
-    instance:terminate_datetime=<YYYY/MM/DD hh:mm AM|PM +0000>
-    e.g. instance:terminate_datetime=2017/03/03 08:00 PM +0100
-```
-Time is in the format: YYYY/MM/DD hh:mm AM or PM +0000 (eg 2017/07/16 07:20 PM +0100)
+For documentation including usage, see the [README](https://github.com/rs-services/policy-cats/blob/master/README.md).
 
 - **Author**: Chris Fordham <chris.fordham@rightscale.com>
 - **Team**: RightScale Cloud Solutions Engineering"
