@@ -66,11 +66,6 @@ output "output_bad_instances" do
 end
 
 
-
-
-
-
-
 ####################
 # OPERATIONS       #
 ####################
@@ -93,14 +88,9 @@ end
 ##########################
 # DEFINITIONS (i.e. RCL) #
 ##########################
-
-define tester() do
-  @@deployment = rs_cm.deployments.get(href:"/api/deployments/713187003")
-  call tag_checker("mitch:testtag") retrieve $bad_instances
-end
-
 # Go through and find improperly tagged instances
 define launch_tag_checker($param_tag_key, $parameter_check_frequency, $parameter_cloud) return $bad_instances do
+
   # add deployment tags for the parameters and then tell tag_checker to go
   rs_cm.tags.multi_add(resource_hrefs: [@@deployment.href], tags: [join(["tagchecker:tag_key=",$param_tag_key])])
   rs_cm.tags.multi_add(resource_hrefs: [@@deployment.href], tags: [join(["tagchecker:check_frequency=",$parameter_check_frequency])])
@@ -117,7 +107,7 @@ define tag_checker() return $bad_instances do
   $check_frequency = 5
   $cloud_scope = ""
 
-  #retrieve tags on current deployment
+  # retrieve tags on current deployment
   call get_tags_for_resource(@@deployment) retrieve $tags_on_deployment
   $href_tag = map $current_tag in $tags_on_deployment return $tag do
     if $current_tag =~ "(tagchecker:tag_key)"
@@ -144,74 +134,48 @@ define tag_checker() return $bad_instances do
 
   $instances_hrefs = to_object(@instances)["hrefs"]
 
-#  call logger(@@deployment, "All instance hrefs:", to_s($instances_hrefs))
+  # call logger(@@deployment, "All instance hrefs:", to_s($instances_hrefs))
   $$bad_instances_array=[]
-        foreach $hrefs in $instances_hrefs do
-        $instances_tags = rs_cm.tags.by_resource(resource_hrefs: [$hrefs])
-        $tag_info_array = $instances_tags[0]
-        # Loop through the tag info array and find any entries which DO NOT reference the tag(s) in question.
-        $param_tag_keys_array = split($tag_key, ",")  # make the parameter list an array so I can search stuff
+  foreach $hrefs in $instances_hrefs do
+  $instances_tags = rs_cm.tags.by_resource(resource_hrefs: [$hrefs])
+  $tag_info_array = $instances_tags[0]
+  # Loop through the tag info array and find any entries which DO NOT reference the tag(s) in question.
+  $param_tag_keys_array = split($tag_key, ",")  # make the parameter list an array so I can search stuff
 
-                foreach $tag_info_hash in $tag_info_array do
-                #    call logger(@@deployment, "tag_info_hash:", to_s($tag_info_hash))
+          foreach $tag_info_hash in $tag_info_array do
 
                   # Create an array of the tags' namespace:key parts
-                        $tag_entry_ns_key_array=[]
-                        foreach $tag_entry in $tag_info_hash["tags"] do
-                          $tag_entry_ns_key_array << split($tag_entry["name"],"=")[0]
-                        end
-#    call logger(@@deployment, "tag_entry_ns_key_array:", to_s($tag_entry_ns_key_array))
+                  $tag_entry_ns_key_array=[]
+                  foreach $tag_entry in $tag_info_hash["tags"] do
+                    $tag_entry_ns_key_array << split($tag_entry["name"],"=")[0]
+                  end
 
-  # See if the desired keys are in the found tags and if not take note of the improperly tagged instances
-                if logic_not(contains?($tag_entry_ns_key_array, $param_tag_keys_array))
-                    foreach $resource in $tag_info_hash["links"] do
-                      $$bad_instances_array << $resource["href"]
-                    end
-                end
+          # See if the desired keys are in the found tags and if not take note of the improperly tagged instances
+          if logic_not(contains?($tag_entry_ns_key_array, $param_tag_keys_array))
+              foreach $resource in $tag_info_hash["links"] do
+                $$bad_instances_array << $resource["href"]
               end
-
-
-              $bad_instances = to_s($$bad_instances_array)
-
-              # Send an alert email if there is at least one improperly tagged instance
-              if logic_not(empty?($$bad_instances_array))
-                call send_tags_alert_email($tag_key,$bad_instances)
-              end
-
-
+          end
         end
-end
 
-define sys_get_execution_id() return $execution_id do
-# Fetches the execution id of "this" cloud app using the default tags set on a
-# deployment created by SS.
-# selfservice:href=/api/manager/projects/12345/executions/54354bd284adb8871600200e
-#
-# @return [String] The execution ID of the current cloud app
-  call get_tags_for_resource(@@deployment) retrieve $tags_on_deployment
-  $href_tag = map $current_tag in $tags_on_deployment return $tag do
-    if $current_tag =~ "(selfservice:href)"
-      $tag = $current_tag
-    end
+
+        $bad_instances = to_s($$bad_instances_array)
+
+        # Send an alert email if there is at least one improperly tagged instance
+        if logic_not(empty?($$bad_instances_array))
+          call send_tags_alert_email($tag_key,$bad_instances)
+        end
+
+
   end
-
-  if type($href_tag) == "array" && size($href_tag) > 0
-    $tag_split_by_value_delimiter = split(first($href_tag), "=")
-    $tag_value = last($tag_split_by_value_delimiter)
-    $value_split_by_slashes = split($tag_value, "/")
-    $execution_id = last($value_split_by_slashes)
-  else
-    $execution_id = "N/A"
-  end
-
 end
 
-
-define login_to_self_service($account_id, $shard) do
-  $response = http_get(
-    url: "https://selfservice-"+$shard+".rightscale.com/api/catalog/new_session?account_id=" + $account_id
-  )
-end
+# used to schedule the recurring task
+# define login_to_self_service($account_id, $shard) do
+#   $response = http_get(
+#     url: "https://selfservice-"+$shard+".rightscale.com/api/catalog/new_session?account_id=" + $account_id
+#   )
+# end
 
 
 # Returns the RightScale shard for the account the given CAT is launched in.
@@ -222,19 +186,19 @@ define find_shard() return $shard_number do
 end
 
 define find_account_name() return $account_name do
-$session_info = rs_cm.sessions.get(view: "whoami")
-$acct_link = select($session_info[0]["links"], {rel: "account"})
-$acct_href = $acct_link[0]["href"]
-$account_name = rs_cm.get(href: $acct_href).name
+  $session_info = rs_cm.sessions.get(view: "whoami")
+  $acct_link = select($session_info[0]["links"], {rel: "account"})
+  $acct_href = $acct_link[0]["href"]
+  $account_name = rs_cm.get(href: $acct_href).name
 end
 
 define get_tags_for_resource(@resource) return $tags do
 # Returns all tags for a specified resource. Assumes that only one resource
 # is passed in, and will return tags for only the first resource in the collection.
-#
+
 # @param @resource [ResourceCollection] a ResourceCollection containing only a
 #   single resource for which to return tags
-#
+
 # @return $tags [Array<String>] an array of tags assigned to @resource
   $tags = []
   $tags_response = rs_cm.tags.by_resource(resource_hrefs: [@resource.href])
@@ -245,33 +209,7 @@ define get_tags_for_resource(@resource) return $tags do
   $tags = $tags
 end
 
-
-define send_email_mailgun($to) do
-  $mailgun_endpoint = "http://smtp.services.rightscale.com/v3/services.rightscale.com/messages"
-  call find_account_name() retrieve $account_name
-
-     $to = gsub($to,"@","%40")
-     $subject = "Long Running Instances Report"
-     $text = "You have the following long running instances"
-
-     $post_body="from=policy-cat%40services.rightscale.com&to=" + $to + "&subject=[" + $account_name + "] Instance+Policy+Report&html=" + $$bad_instances_array
-
-
-  $$response = http_post(
-     url: $mailgun_endpoint,
-     headers: { "content-type": "application/x-www-form-urlencoded"},
-     body: $post_body
-    )
-end
-
-
-
-
-# Sends an email using SendGrid service
-# REQUIRES that the API key be stored in a credential called SENDGRID_API_KEY
 define send_tags_alert_email($tags,$bad_instances) do
-
-
 
   # Get account ID
 
@@ -294,9 +232,6 @@ define send_tags_alert_email($tags,$bad_instances) do
        body: $post_body
       )
 
-
-
-#  call logger(@@deployment, "Email Send Response", to_s($response))
 end
 
 
@@ -306,13 +241,10 @@ define find_account_number() return $account_id do
   $account_id = last(split(select($session[0]["links"], {"rel":"account"})[0]["href"],"/"))
 end
 
-define logger(@deployment, $summary, $details) do
-  rs_cm.audit_entries.create(
-    notify: "None",
-    audit_entry: {
-      auditee_href: @deployment,
-      summary: $summary,
-      detail: $details
-      }
-    )
+
+define get_html_template() return $html_template do
+  $response = http_get(
+    url: 'https://raw.githubusercontent.com/rs-services/policy-cats/master/templates/email_template.html'
+  )
+  $html_template = $response['body']
 end
