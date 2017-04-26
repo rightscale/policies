@@ -49,12 +49,7 @@ parameter "parameter_check_frequency" do
   min_value 5
 end
 
-parameter "parameter_cloud" do
-  category "User Inputs"
-  label "Cloud to look in (enter cloud href to limit scope)"
-  type "string"
-  default "All"
-end
+
 
 ################################
 # Outputs returned to the user #
@@ -89,7 +84,7 @@ end
 # DEFINITIONS (i.e. RCL) #
 ##########################
 # Go through and find improperly tagged instances
-define launch_tag_checker($param_tag_key, $parameter_check_frequency, $parameter_cloud) return $bad_instances do
+define launch_tag_checker($param_tag_key, $parameter_check_frequency) return $bad_instances do
 
   # add deployment tags for the parameters and then tell tag_checker to go
   rs_cm.tags.multi_add(resource_hrefs: [@@deployment.href], tags: [join(["tagchecker:tag_key=",$param_tag_key])])
@@ -120,15 +115,11 @@ define tag_checker() return $bad_instances do
   end
 
 
-  if $cloud_scope == "All"
+
     @instances_operational = rs_cm.instances.get(filter: ["state==operational"])
     @instances_provisioned = rs_cm.instances.get(filter: ["state==provisioned"])
     @instances_running = rs_cm.instances.get(filter: ["state==running"])
-  else
-    @instances_operational = rs_cm.clouds.get(href: $cloud_scope).instances(filter: ["state==operational"])
-    @instances_provisioned = rs_cm.clouds.get(href: $cloud_scope).instances(filter: ["state==provisioned"])
-    @instances_running = rs_cm.clouds.get(href: $cloud_scope).instances(filter: ["state==running"])
-  end
+
 
   @instances = @instances_operational + @instances_provisioned + @instances_running
 
@@ -208,40 +199,91 @@ define send_tags_alert_email($tags,$bad_instances) do
   call find_account_name() retrieve $account_name
 
   # Build email
-  $deployment_description_array = lines(@@deployment.description)
+  #$deployment_description_array = lines(@@deployment.description)
   $to="edwin@rightscale.com"
 
-  $message = "The following instances are missing tags, " + $tags + ":\n " + $bad_instances
+  $list_of_instances=""
+  $table_start="<td align=%22left%22 valign=%22top%22>"
+  $table_end="</td>"
+  $email_msg = "RightScale discovered that the following instance are missing tags <b>" + $tags + "</b> in <b>"+ $account_name +".</b> Per the policy set by your organization, these instances are not compliant"
+
+  $header="\<\!DOCTYPE html PUBLIC \"-\/\/W3C\/\/DTD XHTML 1.0 Transitional\/\/EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\"\>
+  <html xmlns=\"http:\/\/www.w3.org\/1999\/xhtml\">
+      <head>
+          <meta http-equiv=%22Content-Type%22 content=%22text/html; charset=UTF-8%22 />
+          <a href=%22//www.rightscale.com%22>
+<img src=%22https://assets.rightscale.com/6d1cee0ec0ca7140cd8701ef7e7dceb18a91ba20/web/images/logo.png%22 alt=%22RightScale Logo%22 width=%22200px%22 />
+</a>
+          <style></style>
+      </head>
+      <body>
+        <table border=%220%22 cellpadding=%220%22 cellspacing=%220%22 height=%22100%%22 width=%22100%%22 id=%22bodyTable%22>
+            <tr>
+                <td align=%22left%22 valign=%22top%22>
+                    <table border=%220%22 cellpadding=%2220%22 cellspacing=%220%22 width=%22100%%22 id=%22emailContainer%22>
+                        <tr>
+                            <td align=%22left%22 valign=%22top%22>
+                                <table border=%220%22 cellpadding=%2220%22 cellspacing=%220%22 width=%22100%%22 id=%22emailHeader%22>
+                                    <tr>
+                                        <td align=%22left%22 valign=%22top%22>
+                                           " + $email_msg + "
+                                        </td>
+
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td align=%22left%22 valign=%22top%22>
+                                <table border=%220%22 cellpadding=%2210%22 cellspacing=%220%22 width=%22100%%22 id=%22emailBody%22>
+                                    <tr>
+                                        <td align=%22left%22 valign=%22top%22>
+                                            Instance Name
+                                        </td>
+                                        <td align=%22left%22 valign=%22top%22>
+                                            State
+                                        </td>
+                                        <td align=%22left%22 valign=%22top%22>
+                                            Link
+                                        </td>
+                                    </tr>
+                                    "
+
+
+
+    $footer="</tr></table></td></tr><tr><td align=%22left%22 valign=%22top%22><table border=%220%22 cellpadding=%2220%22 cellspacing=%220%22 width=%22100%%22 id=%22emailFooter%22><tr><td align=%22left%22 valign=%22top%22>
+            This report was automatically generated by a policy template Instance Runtime Policy your organization has defined in RightScale.
+        </td></tr></table></td></tr></table></td></tr></table></body></html>"
+
+
+
+
+
+
+
 
   #$to = gsub($to,"@","%40")
   $subject = "Tag Checker Policy: "
   $from = "policy-cat@services.rightscale.com"
 
-  $body_html = '<img src="https://assets.rightscale.com/735ca432d626b12f75f7e7db6a5e04c934e406a8/web/images/logo.png" style="width:220px" />
-              <p>Some info here</p>'
+
 
   foreach $instance in $bad_instances do
-    $$table_rows = ''
-    @instance = rs_cm.get(href: "/api/clouds/1/instances/C08HNN6HOM02P")
+
+    @instance = rs_cm.get(href: [$instance])
     $instance_name = @instance.name
     $instance_state = @instance.state
-    $$table_rows = $$table_rows + '<table><tr><th>' + $instance_name + '</th><th>' + $instance_state + '</th><th>asdfasdfasdfasd</tr>'
+    call find_shard() retrieve $shard_number
+    call find_account_number() retrieve $account_id
+    call get_server_access_link(@instance.href) retrieve $server_access_link_root
+    $instance_table = "<tr>" + $table_start + $instance_name + $table_end + $table_start + $instance_state + $table_end + $table_start + $server_access_link_root + $table_end + "</tr>"
+    insert($list_of_instances, -1, $instance_table)
   end
 
 
-  $body_html = $body_html + $$table_rows
-  #'<table><tr><th>Instance Name</th><th>State</th><th>Link</tr>' + $table_rows + '</table>'
+  $email_body = $header + $list_of_instances + $footer
 
-  $footer_text = 'This report was automatically generated by a policy tag checker your organization has defined in RightScale.'
-
-  call get_html_template() retrieve $html_template
-  # render the template
-  $html = $html_template
-  $html = gsub($html, '{{title}}', $subject)
-  $html = gsub($html, '{{body}}', $body_html)
-  $html = gsub($html, '{{footer_text}}', $footer_text)
-
-  call send_html_email($to, $from, $subject, $html) retrieve $response
+  call send_html_email($to, $from, $subject, $email_body) retrieve $response
 
   if $response['code'] != 200
     raise 'Failed to send email report: ' + to_s($response)
