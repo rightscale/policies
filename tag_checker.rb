@@ -37,7 +37,7 @@ parameter "param_tag_key" do
   label "Tags' Namespace:Keys List"
   type "string"
   description "Comma-separated list of Tags' Namespace:Keys to audit. For example: \"ec2:project_code\" or \"bu:id\""
-  default "costcenter:id"
+  min_length 3
   allowed_pattern '^([a-zA-Z0-9-_]+:[a-zA-Z0-9-_]+,*)+$'
 end
 
@@ -269,7 +269,11 @@ define send_tags_alert_email($tags,$to) do
   foreach $instance in $$bad_instances_array do
 
     @instance = rs_cm.get(href: $instance)
-    $instance_name = @instance.name
+    if @instance.state == 'provisioned'
+     $instance_name = @instance.resource_uid
+    else
+     $instance_name = @instance.name
+    end
     $instance_state = @instance.state
     call find_shard() retrieve $shard_number
     call find_account_number() retrieve $account_id
