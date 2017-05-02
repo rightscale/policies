@@ -267,19 +267,33 @@ define send_tags_alert_email($tags,$to) do
 
 
   foreach $instance in $$bad_instances_array do
+    $$instance_error = 'false'
+    @server = rs_cm.servers.empty()
 
-    @instance = rs_cm.get(href: $instance)
-    if @instance.state == 'provisioned'
-     $instance_name = @instance.resource_uid
-    else
-     $instance_name = @instance.name
+    sub on_error: set_instance_error() do
+    @server = rs_cm.get(href: $instance)
     end
-    $instance_state = @instance.state
-    call find_shard() retrieve $shard_number
-    call find_account_number() retrieve $account_id
-    call get_server_access_link(@instance.href) retrieve $server_access_link_root
-    $instance_table = "<tr>" + $table_start + $instance_name + $table_end + $table_start + $instance_state + $table_end + $table_start + $server_access_link_root + $table_end + "</tr>"
-    insert($list_of_instances, -1, $instance_table)
+
+    if $$instance_error == 'true'
+      #issue with the instance, may no longer exists
+
+    else
+
+         if @server.state == 'provisioned'
+           $instance_name = @server.resource_uid
+         else
+           $instance_name = @server.name
+         end
+          $instance_state = @server.state
+          $server_access_link_root = 'unknown'
+
+      sub on_error: skip do
+        call get_server_access_link(@server.href) retrieve $server_access_link_root
+      end
+
+      $instance_table = "<tr>" + $table_start + $instance_name + $table_end + $table_start + $instance_state + $table_end + $table_start + $server_access_link_root + $table_end + "</tr>"
+      insert($list_of_instances, -1, $instance_table)
+    end
   end
 
 
@@ -312,6 +326,11 @@ define send_html_email($to, $from, $subject, $html) return $response do
   )
 end
 
+define set_instance_error() do
+  $$instance_error = 'true'
+  $_error_behavior = "skip"
+end
+
 
 # Returns the RightScale account number in which the CAT was launched.
 define find_account_number() return $account_id do
@@ -319,13 +338,6 @@ define find_account_number() return $account_id do
   $account_id = last(split(select($session[0]["links"], {"rel":"account"})[0]["href"],"/"))
 end
 
-
-define get_html_template() return $html_template do
-  $response = http_get(
-    url: 'https://raw.githubusercontent.com/rs-services/policy-cats/master/templates/email_template.html'
-  )
-  $html_template = $response['body']
-end
 
 define get_server_access_link($instance_href) return $server_access_link_root do
 
@@ -343,7 +355,13 @@ define get_server_access_link($instance_href) return $server_access_link_root do
      )
      $instances = $response["body"]
      $instance_of_interest = select($instances, { "href" : $instance_href })[0]
-     $legacy_id = $instance_of_interest["legacy_id"]
+
+     if $instance_of_interest["legacy_id"] == 'null'
+       $legacy_id = "unknown"
+     else
+       $legacy_id = $instance_of_interest["legacy_id"]
+     end
+
      $data = split($instance_href, "/")
      $cloud_id = $data[3]
      $server_access_link_root = "https://my.rightscale.com/acct/" + $account_number + "/clouds/" + $cloud_id + "/instances/" + $legacy_id
