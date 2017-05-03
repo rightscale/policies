@@ -38,6 +38,7 @@ parameter "param_tag_key" do
   type "string"
   description "Comma-separated list of Tags' Namespace:Keys to audit. For example: \"ec2:project_code\" or \"bu:id\""
   min_length 3
+  default "ec2:Name,ec2:environment,ec2:mapid,ec2:project,ec2:transit"
   allowed_pattern '^([a-zA-Z0-9-_]+:[a-zA-Z0-9-_]+,*)+$'
 end
 

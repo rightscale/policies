@@ -9,6 +9,30 @@ You can use Cloud Application Templates (CATs) in RightScale Self Service to aut
 
 ## Sample Policy CATs
 
+### Tag Checker
+**What it does**
+
+This policy CAT will search all your cloud accounts that are connected to the RightScale account where you are running the CAT. It will report on vms that do not have the set of tags specified.
+
+You will received an email report with direct links to the non compliant vms.
+
+<img src="https://github.com/rs-services/policy-cats/blob/master/readme_images/volume_email_screenshot.png" width="600">
+
+
+**Scheduling when the policy runs**
+
+To control the frequency that the policy CAT runs, you should [create a schedule and associate it with the CAT](http://docs.rightscale.com/ss/guides/ss_creating_schedules.html) in RightScale Self-Service.
+
+Specify the days of the week that you want the CAT to run. For example, if you want the policy CAT to run once a week on Monday, specify a schedule of only Monday. For the hours you should specify approximately a 30 minute time window for the policy CAT to complete. (It should take less than 15 minutes to run).
+
+<img src="https://github.com/rs-services/policy-cats/blob/master/readme_images/create_a_new_schedule.png">
+
+**Cost**
+
+This policy CAT does not launch any instances, and so does not incur any cloud costs.
+
+
+
 ### Unattached Volume Finder
 **What it does**
 
