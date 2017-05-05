@@ -47,8 +47,18 @@ parameter "param_email" do
   label "Email addresses (separate with commas)"
   type "string"
   min_length 6
-
 end
+
+parameter "param_run_once" do
+  category "Run Once"
+  label "If set to true the cloud app will terminate itself after completion."
+  type "string"
+  default "true"
+  allowed_values "true","false"
+end
+
+
+
 
 ################################
 # Outputs returned to the user #
@@ -83,7 +93,7 @@ end
 # DEFINITIONS (i.e. RCL) #
 ##########################
 # Go through and find improperly tagged instances
-define launch_tag_checker($param_tag_key,$param_email) return $bad_instances do
+define launch_tag_checker($param_tag_key,$param_email,$param_run_once) return $bad_instances do
 
   # add deployment tags for the parameters and then tell tag_checker to go
   rs_cm.tags.multi_add(resource_hrefs: [@@deployment.href], tags: [join(["tagchecker:tag_key=",$param_tag_key])])
@@ -91,6 +101,17 @@ define launch_tag_checker($param_tag_key,$param_email) return $bad_instances do
   rs_cm.tags.multi_add(resource_hrefs: [@@deployment.href], tags: [join(["tagchecker:cloud_scope=",$parameter_cloud])])
 
   call tag_checker() retrieve $bad_instances
+
+  if $param_run_once == "true"
+    $time = now() + 30
+  rs_ss.scheduled_actions.create(execution_id: @@execution.id,
+                                 action: "terminate", 
+                                 first_occurrence: $time)
+
+
+  end
+
+
 end
 
 # Do the actual work of looking at the tags and identifying bad instances.
