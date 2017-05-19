@@ -19,7 +19,7 @@ short_description "Pingdom Security Group Rules"
 #RightScale Cloud Application Template (CAT)
 
 # DESCRIPTION
-# Finds long running instances and reports on them
+# Manages Security Group Rules using Pingdoms public feed
 #
 
 
@@ -34,10 +34,34 @@ parameter "parameter_check_frequency" do
   min_value 1
 end
 
+parameter "parameter_sg_href_na" do
+  category "User Inputs"
+  label "Security Group HREF for North America [NA] IPs"
+  type "string"
+end
+
+parameter "parameter_sg_href_eu" do
+  category "User Inputs"
+  label "Security Group HREF for European [EU] IPs"
+  type "string"
+end
+
+parameter "parameter_sg_href_apac" do
+  category "User Inputs"
+  label "Security Group HREF for Asia-Pacific [APAC] IPs"
+  type "string"
+end
+
+parameter "parameter_sg_href_misc" do
+  category "User Inputs"
+  label "Security Group HREF for overflow and misc IPs"
+  type "string"
+end
+
 parameter "parameter_pingdom_last_build_date" do
   category "Advanced"
   label "Pingdom lastBuildDate"
-  description "Ignore this parameterif you are unsure with how it is used."
+  description "Ignore this parameter if you are unsure with how it is used."
   type "string"
   default " "
 end
@@ -61,8 +85,8 @@ operation "syncPingdomSecurityGroupRules" do
   definition "syncPingdomSecurityGroupRules"
 end
 
-define launch_syncPingdomSecurityGroupRules($parameter_check_frequency)  do
-    call syncPingdomSecurityGroupRules($parameter_check_frequency,'')
+define launch_syncPingdomSecurityGroupRules($parameter_check_frequency, $parameter_sg_href_na, $parameter_sg_href_eu, $parameter_sg_href_apac, $parameter_sg_href_misc)  do
+    call syncPingdomSecurityGroupRules($parameter_check_frequency,'',$parameter_sg_href_na, $parameter_sg_href_eu, $parameter_sg_href_apac, $parameter_sg_href_misc)
 end
 
 
@@ -90,21 +114,16 @@ define retry_syncPingdomSecurityGroupRules($attempts) do
   end
 end
 
-define syncPingdomSecurityGroupRules($parameter_check_frequency,$parameter_pingdom_last_build_date) do
+define syncPingdomSecurityGroupRules($parameter_check_frequency,$parameter_pingdom_last_build_date,$parameter_sg_href_na, $parameter_sg_href_eu, $parameter_sg_href_apac, $parameter_sg_href_misc) do
   $attempts = 0
   sub on_error: retry_syncPingdomSecurityGroupRules($attempts) do
     $attempts = $attempts + 1
-    #Setup Security Group Href Hash 
-    $pingdomSecurityGroupHref_NA = "/api/clouds/3/security_groups/6EL0AN0EC8J7"
-    $pingdomSecurityGroupHref_EU = "/api/clouds/3/security_groups/DVVVNKO74NVMJ"
-    $pingdomSecurityGroupHref_APAC = "/api/clouds/3/security_groups/DBDSFK3LE01FK"
-    $pingdomSecurityGroupHref_Misc = "/api/clouds/3/security_groups/F9TGQ869SOK3B" 
 
     $pingdomSecurityGroups = {
-      "NA":  {  "sg_href": $pingdomSecurityGroupHref_NA  },
-      "EU":  {  "sg_href": $pingdomSecurityGroupHref_EU  },
-      "APAC": {  "sg_href": $pingdomSecurityGroupHref_APAC    },
-      "Misc": {  "sg_href": $pingdomSecurityGroupHref_Misc    }
+      "NA":  {  "sg_href": $parameter_sg_href_na  },
+      "EU":  {  "sg_href": $parameter_sg_href_eu  },
+      "APAC": {  "sg_href": $parameter_sg_href_apac    },
+      "Misc": {  "sg_href": $parameter_sg_href_misc    }
     }
   
 
@@ -173,7 +192,7 @@ define syncPingdomSecurityGroupRules($parameter_check_frequency,$parameter_pingd
       
     end
     task_label('Scheduling next check')
-    call schedule_next_check($parameter_check_frequency,$pingdomProbesLastBuildDate)
+    call schedule_next_check($parameter_check_frequency,$pingdomProbesLastBuildDate,$parameter_sg_href_na, $parameter_sg_href_eu, $parameter_sg_href_apac, $parameter_sg_href_misc)
   end
 end
 
@@ -206,7 +225,7 @@ end
 ##############
 
 
-define schedule_next_check($check_frequency,$pingdom_last_build) do
+define schedule_next_check($check_frequency,$pingdom_last_build,$parameter_sg_href_na, $parameter_sg_href_eu, $parameter_sg_href_apac, $parameter_sg_href_misc) do
 #Creates a scheduled action to do another check in user-specified minutes
 
 #  call logger(@@deployment, "Scheduling next action in "+$check_frequency+" minutes", "")
@@ -234,7 +253,28 @@ define schedule_next_check($check_frequency,$pingdom_last_build) do
           "name":"parameter_pingdom_last_build_date",
           "type":"string",
           "value":$pingdom_last_build
-        }]
+        },
+        {
+          "name":"parameter_sg_href_na",
+          "type":"string",
+          "value":$parameter_sg_href_na
+        },
+        {
+          "name":"parameter_sg_href_eu",
+          "type":"string",
+          "value":$parameter_sg_href_eu
+        },
+        {
+          "name":"parameter_sg_href_apac",
+          "type":"string",
+          "value":$parameter_sg_href_apac
+        },
+        {
+          "name":"parameter_sg_href_misc",
+          "type":"string",
+          "value":$parameter_sg_href_misc
+        }
+    ]
      }
     }  
 
