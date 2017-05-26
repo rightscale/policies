@@ -86,9 +86,6 @@ end
 
 
 
-##################
-# Definitions    #
-##################
 
 ####################
 # OPERATIONS       #
@@ -107,7 +104,9 @@ define launch_syncPingdomSecurityGroupRules($parameter_check_frequency, $paramet
     call syncPingdomSecurityGroupRules($parameter_check_frequency,'',$parameter_sg_href_na, $parameter_sg_href_eu, $parameter_sg_href_apac, $parameter_sg_href_misc,$parameter_start_port,$parameter_end_port)
 end
 
-
+##################
+# Definitions    #
+##################
 define getPingdomProbes() return $pingdomProbes,$pingdomProbesLastBuildDate do  
   $response = http_get( url: "https://my.pingdom.com/probes/feed" )
   $pingdomFeed = $response["body"]["rss"]["channel"]["item"]
@@ -213,29 +212,6 @@ define syncPingdomSecurityGroupRules($parameter_check_frequency,$parameter_pingd
     call schedule_next_check($parameter_check_frequency,$pingdomProbesLastBuildDate,$parameter_sg_href_na, $parameter_sg_href_eu, $parameter_sg_href_apac, $parameter_sg_href_misc,$parameter_start_port,$parameter_end_port)
   end
 end
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 ##############
