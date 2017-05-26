@@ -34,6 +34,24 @@ parameter "parameter_check_frequency" do
   min_value 1
 end
 
+parameter "parameter_start_port" do
+  category "User Inputs"
+  label "Start port for Security Group ALLOW rule [if only one port, same as end port]"
+  type "number"
+  default 443
+  min_value 1
+  max_value 65535
+end
+
+parameter "parameter_end_port" do
+  category "User Inputs"
+  label "End port for Security Group ALLOW rule [if only one port, same as start port]"
+  type "number"
+  default 443
+  min_value 1
+  max_value 65535  
+end
+
 parameter "parameter_sg_href_na" do
   category "User Inputs"
   label "Security Group HREF for North America [NA] IPs"
@@ -85,8 +103,8 @@ operation "syncPingdomSecurityGroupRules" do
   definition "syncPingdomSecurityGroupRules"
 end
 
-define launch_syncPingdomSecurityGroupRules($parameter_check_frequency, $parameter_sg_href_na, $parameter_sg_href_eu, $parameter_sg_href_apac, $parameter_sg_href_misc)  do
-    call syncPingdomSecurityGroupRules($parameter_check_frequency,'',$parameter_sg_href_na, $parameter_sg_href_eu, $parameter_sg_href_apac, $parameter_sg_href_misc)
+define launch_syncPingdomSecurityGroupRules($parameter_check_frequency, $parameter_sg_href_na, $parameter_sg_href_eu, $parameter_sg_href_apac, $parameter_sg_href_misc,$parameter_start_port,$parameter_end_port)  do
+    call syncPingdomSecurityGroupRules($parameter_check_frequency,'',$parameter_sg_href_na, $parameter_sg_href_eu, $parameter_sg_href_apac, $parameter_sg_href_misc,$parameter_start_port,$parameter_end_port)
 end
 
 
@@ -114,7 +132,7 @@ define retry_syncPingdomSecurityGroupRules($attempts) do
   end
 end
 
-define syncPingdomSecurityGroupRules($parameter_check_frequency,$parameter_pingdom_last_build_date,$parameter_sg_href_na, $parameter_sg_href_eu, $parameter_sg_href_apac, $parameter_sg_href_misc) do
+define syncPingdomSecurityGroupRules($parameter_check_frequency,$parameter_pingdom_last_build_date,$parameter_sg_href_na, $parameter_sg_href_eu, $parameter_sg_href_apac, $parameter_sg_href_misc,$parameter_start_port,$parameter_end_port) do
   $attempts = 0
   sub on_error: retry_syncPingdomSecurityGroupRules($attempts) do
     $attempts = $attempts + 1
@@ -175,8 +193,8 @@ define syncPingdomSecurityGroupRules($parameter_check_frequency,$parameter_pingd
               "source_type":"cidr_ips",
               "direction":"ingress",
               "protocol_details": {
-                "start_port":"80",
-                "end_port":"80"
+                "start_port":$parameter_start_port,
+                "end_port":$parameter_end_port
                 },
               "description": "Pingdom Probe - Created by CloudApp"
               }
@@ -192,7 +210,7 @@ define syncPingdomSecurityGroupRules($parameter_check_frequency,$parameter_pingd
       
     end
     task_label('Scheduling next check')
-    call schedule_next_check($parameter_check_frequency,$pingdomProbesLastBuildDate,$parameter_sg_href_na, $parameter_sg_href_eu, $parameter_sg_href_apac, $parameter_sg_href_misc)
+    call schedule_next_check($parameter_check_frequency,$pingdomProbesLastBuildDate,$parameter_sg_href_na, $parameter_sg_href_eu, $parameter_sg_href_apac, $parameter_sg_href_misc,$parameter_start_port,$parameter_end_port)
   end
 end
 
@@ -225,7 +243,7 @@ end
 ##############
 
 
-define schedule_next_check($check_frequency,$pingdom_last_build,$parameter_sg_href_na, $parameter_sg_href_eu, $parameter_sg_href_apac, $parameter_sg_href_misc) do
+define schedule_next_check($check_frequency,$pingdom_last_build,$parameter_sg_href_na, $parameter_sg_href_eu, $parameter_sg_href_apac, $parameter_sg_href_misc, $parameter_start_port, $parameter_end_port) do
 #Creates a scheduled action to do another check in user-specified minutes
 
 #  call logger(@@deployment, "Scheduling next action in "+$check_frequency+" minutes", "")
@@ -248,6 +266,16 @@ define schedule_next_check($check_frequency,$pingdom_last_build,$parameter_sg_hr
           "name":"parameter_check_frequency",
           "type":"number",
           "value":$check_frequency
+        },
+        {
+          "name":"parameter_start_port",
+          "type":"string",
+          "value":$parameter_start_port
+        },
+        {
+          "name":"parameter_end_port",
+          "type":"string",
+          "value":$parameter_end_port
         },
         {
           "name":"parameter_pingdom_last_build_date",
