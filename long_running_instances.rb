@@ -1,6 +1,7 @@
 name 'Instance Runtime Policy'
 rs_ca_ver 20160622
-short_description "This automated policy CAT will find instances that have been running longer than a specified time, send alerts, and optionally delete them."
+short_description "![RS Policy](https://goo.gl/RAcMcU =64x64)\n
+This automated policy CAT will find instances that have been running longer than a specified time, send alerts, and optionally delete them."
 
 #Copyright 2017 RightScale
 #
@@ -75,14 +76,103 @@ define find_long_running_instances($param_days_old) return $send_email do
     @all_instances = @all_instances + rs_cm.instances.index(filter:["state==pending"])
     @all_instances = @all_instances + rs_cm.instances.index(filter:["state==stranded"])
     @all_instances = @all_instances + rs_cm.instances.index(filter:["state==running"])
+
+    #todo - add drop down to select if stopped instances should be included.
+
     @all_instances = @all_instances + rs_cm.instances.index(filter:["state==provisioned"])
-    #get account id to include in the email.
+
+    $list_of_instances=""
+    $table_start="<td align=%22left%22 valign=%22top%22>"
+    $table_end="</td>"
+
+    #/60/60/24
+    $curr_time = now()
+    call find_shard() retrieve $shard_number
+    call find_account_number() retrieve $account_id
+
+    #counter to included total number of instances found that trigger the policy
+    $number_of_instance_found=0
+
+    foreach @instance in @all_instances do
+
+      $instance_name = ""
+      $instance_type = ""
+      $instance_state = ""
+      $cloud_name = ""
+      $display_days_old = ""
+      $server_access_link_root = ""
+
+
+       #convert string to datetime to compare datetime
+      $instance_updated_at = to_d(@instance.updated_at)
+
+      #the difference between dates
+      $difference = $curr_time - $instance_updated_at
+
+      #convert the difference to days
+      $how_old = $difference /60/60/24
+
+    	if $param_days_old < $how_old
+        $number_of_instance_found=$number_of_instance_found + 1
+        $send_email = "true"
+
+
+        sub task_label: "retrieing access link", on_error: error_server_link() do
+        call get_server_access_link(@instance.href, $shard_number, $account_id) retrieve $server_access_link_root
+        end
+
+        sub task_label: "retrieving instance name", on_error: error_instance_name() do
+          if @instance.state == 'provisioned'
+           $instance_name = @instance.resource_uid
+          else
+           $instance_name = @instance.name
+          end
+        end
+        #if we're unable to get the instance type, it will be listed as unknown in the email report.
+        sub task_label: "retrieving instance type", on_error: error_instance_type() do
+        $instance_type = @instance.instance_type().name
+        end
+
+        sub task_label: "retrieving instance state", on_error: error_instance_state() do
+        $instance_state = @instance.state
+        end
+
+        sub task_label: "retrieving cloud name for the instance", on_error: error_cloud_name() do
+        $cloud_name = @instance.cloud().name
+        end
+
+        sub task_label: "retrieving display days old", on_error: error_display_days() do
+        $display_days_old = first(split(to_s($how_old),"."))
+        end
+
+
+
+
+        #here we decide if we should delete the volume
+        if $param_action == "Alert and Terminate"
+          sub task_name: "Terminate instance" do
+            task_label("Terminate instance")
+            sub on_error: handle_error() do
+              @instance.terminate()
+            end
+          end
+        end
+
+
+        $instance_table = "<tr>" + $table_start + $instance_name + $table_end + $table_start + $instance_type + $table_end + $table_start + $instance_state + $table_end + $table_start + $cloud_name + $table_end + $table_start + $display_days_old + $table_end + $table_start + $server_access_link_root + $table_end + "</tr>"
+        insert($list_of_instances, -1, $instance_table)
+    end
+  end
+
+    #form email
+
     call find_account_name() retrieve $account_name
     #refactor.
     if $param_action == "Alert and Terminate"
-      $email_msg = "RightScale discovered the following instances in "+ $account_name +". Per the policy set by your organization, these instances have been terminated and are no longer accessible"
+
+      $email_msg = "RightScale discovered <b>" + $number_of_instance_found + "</b> instances in <b>"+ $account_name +".</b> Per the policy set by your organization, these instances have been terminated and are no longer accessible"
     else
-      $email_msg = "RightScale discovered the following instances in "+ $account_name +" that exceed your instance runtime policy of " + $param_days_old +" days."
+      $email_msg = "RightScale discovered <b>" + $number_of_instance_found + "</b> instances in <b>"+ $account_name +"</b> that exceed your instance runtime policy of " + $param_days_old +" days."
     end
 
 
@@ -136,91 +226,8 @@ define find_long_running_instances($param_days_old) return $send_email do
                                           </td>
                                       </tr>
                                       "
-      $list_of_instances=""
-      $table_start="<td align=%22left%22 valign=%22top%22>"
-      $table_end="</td>"
-
-    #/60/60/24
-    $curr_time = now()
-    call find_shard() retrieve $shard_number
-    call find_account_number() retrieve $account_id
-    foreach @instance in @all_instances do
-
-      #convert string to datetime to compare datetime
-      $instance_updated_at = to_d(@instance.updated_at)
-
-      #the difference between dates
-      $difference = $curr_time - $instance_updated_at
-
-      #convert the difference to days
-      $how_old = $difference /60/60/24
-
-    	if $param_days_old < $how_old
-        $send_email = "true"
-        sub on_error: skip do
-        call get_server_access_link(@instance.href, $shard_number, $account_id) retrieve $server_access_link_root
-        end
-
-        sub on_error: skip do
-        $instance_name = @instance.name
-        end
-
-        #if we're unable to get the instance type, it will be listed as unknown in the email report.
-        sub on_error: skip do
-        $instance_type = @instance.instance_type().description
-        end
-
-        sub on_error: skip do
-        $instance_state = @instance.state
-        end
-
-        sub on_error: skip do
-        $cloud_name = @instance.cloud().name
-        end
-
-        sub on_error: skip do
-        $display_days_old = first(split(to_s($how_old),"."))
-        end
-
-        if $instance_type == null
-          $instance_type = 'unknown'
-        end
-
-        if $server_access_link_root == null
-            $server_access_link_root = 'unknown'
-        end
-
-        if $instance_name == null
-            $instance_name = 'unknown'
-        end
-
-        if $instance_state == null
-          $instance_state = 'unknown'
-        end
-
-        if $cloud_name == null
-          $cloud_name = 'unknown'
-        end
-
-        if $display_days_old == null
-          $display_days_old = 'unknown'
-        end
-
-        #here we decide if we should delete the volume
-        if $param_action == "Alert and Terminate"
-          sub task_name: "Terminate instance" do
-            task_label("Terminate instance")
-            sub on_error: handle_error() do
-              @instance.terminate()
-            end
-          end
-        end
 
 
-        $instance_table = "<tr>" + $table_start + $instance_name + $table_end + $table_start + $instance_type + $table_end + $table_start + $instance_state + $table_end + $table_start + $cloud_name + $table_end + $table_start + $display_days_old + $table_end + $table_start + $server_access_link_root + $table_end + "</tr>"
-        insert($list_of_instances, -1, $instance_table)
-    end
-  end
 
       $footer="</tr></table></td></tr><tr><td align=%22left%22 valign=%22top%22><table border=%220%22 cellpadding=%2220%22 cellspacing=%220%22 width=%22100%%22 id=%22emailFooter%22><tr><td align=%22left%22 valign=%22top%22>
               This report was automatically generated by a policy template Instance Runtime Policy your organization has defined in RightScale.
@@ -278,6 +285,36 @@ define get_server_access_link($instance_href, $shard, $account_number) return $s
  end
 
 
+
+define error_server_link() return $server_access_link_root do
+  $server_access_link_root = "unknown"
+   $_error_behavior = "skip"
+end
+
+define error_cloud_name() return $cloud_name do
+  $cloud_name = "unknown"
+  $_error_behavior = "skip"
+end
+
+define error_display_days() return $display_days_old do
+  $display_days_old = "unknown"
+  $_error_behavior = "skip"
+end
+
+define error_instance_type() return $instance_type do
+  $instance_type = "unknown"
+  $_error_behavior = "skip"
+end
+
+define error_instance_name()  return $instance_name do
+  $instance_name = "unknown"
+  $_error_behavior = "skip"
+end
+
+define error_instance_state() return $instance_state do
+  $instance_state = "unknown"
+  $_error_behavior = "skip"
+end
 
 
   # Returns the RightScale account number in which the CAT was launched.

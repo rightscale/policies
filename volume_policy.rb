@@ -1,7 +1,8 @@
 
 name 'Unattached Volume Policy'
 rs_ca_ver 20160622
-short_description "This automated policy CAT will find unattached volumes, send alerts, and optionally delete them."
+short_description "![RS Policy](https://goo.gl/RAcMcU =64x64)\n
+This automated policy CAT will find unattached volumes, send alerts, and optionally delete them."
 
 #Copyright 2017 RightScale
 #
@@ -128,7 +129,7 @@ define find_unattached_volumes($param_action) return $send_email do
                                               Volume Name
                                           </td>
                                           <td align=%22left%22 valign=%22top%22>
-                                              Volume Size
+                                              Volume Size (GB)
                                           </td>
                                           <td align=%22left%22 valign=%22top%22>
                                               Days Old

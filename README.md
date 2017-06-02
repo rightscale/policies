@@ -73,6 +73,7 @@ This policy CAT will find instances specifically tagged for shutdown or terminat
 
 It is recommended to run the CloudApp using the "Always On" schedule unless you want to explicitly exclude times that instances could be shutdown.
 
+
 **Usage**
 
 To be a candidate for actions managed by this CAT:
