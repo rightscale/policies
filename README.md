@@ -1,14 +1,15 @@
-<a href="url"><img src="https://image.freepik.com/free-icon/white-house-building_318-37808.jpg" "RightScale Policy" align="left" height="48" width="48" ></a>
-#RightScale Policy CAT Files
-##Overview
+<img src="https://image.freepik.com/free-icon/white-house-building_318-37808.jpg" align="left" height="48" width="48">
+
+# RightScale Policy CAT Files
+## Overview
 
 You can use Cloud Application Templates (CATs) in RightScale Self Service to automate policies. We have created sample policy CATs that you can use as a starting point. These are provided solely as samples under an Apache 2.0 open source license with no warranties.
 
 **Important: You should test these CATs to ensure they work for your needs.**
 
-##Sample Policy CATs
+## Sample Policy CATs
 
-###Unattached Volume Finder
+### Unattached Volume Finder
 **What it does**
 
 This policy CAT will search all your cloud accounts that are connected to the RightScale account where you are running the CAT. It will find unattached volumes that are have been unattached for longer than a specified number of days.
@@ -33,7 +34,8 @@ This policy CAT does not launch any instances, and so does not incur any cloud c
 
 
 
-###Instance Runtime Policy
+### Instance Runtime Policy
+
 **What it does**
 
 This policy CAT will search all your cloud accounts that are connected to the RightScale account where you are running the CAT. It will find instances that have been running for longer than a specified number of days.
@@ -61,8 +63,51 @@ Specify the days of the week that you want the CAT to run. For example, if you w
 
 This policy CAT does not launch any instances, and so does not incur any cloud costs.
 
+### Shutdown Scheduler
 
-###How to Use
+**What it does**
+
+This policy CAT will find instances specifically tagged for shutdown or termination and applies that action once the shutdown date in the tag value is reached or exceeded.
+
+**Scheduling when the policy runs**
+
+It is recommended to run the CloudApp using the "Always On" schedule
+unless you want to explicitly exclude times that instances could be shutdown.
+
+**Usage**
+
+To be a candidate for actions managed by this CAT:
+- instances must have a tag matching `instance:shutdown_datetime` or `instance:terminate_datetime` with a datestamp set as the value
+- Optionally, A UTC/GMT offset (e.g. +1000) can be supplied to ensure the action occurs at UTC + the offset
+
+The tag format is as follows:
+
+For shutdown (stop):
+```
+instance:shutdown_datetime=<YYYY/MM/DD hh:mm AM|PM +0000>
+```
+
+For terminate:
+```
+instance:terminate_datetime=<YYYY/MM/DD hh:mm AM|PM +0000>
+```
+
+Time is in the format: YYYY/MM/DD hh:mm AM or PM +0000 (e.g. 2017/07/16 07:20 PM +0100).
+
+An example tag requiring the instance to shutdown (stop) on the 2nd March 2017 at 8am Australian Eastern Daylight Time which is UTC +11hrs:
+```
+instance:shutdown_datetime=2017/03/02 08:00 AM +1100
+
+```
+
+An example tag to terminate the instance on the 3rd March 2017 at 8pm Pacific Standard Time:
+
+```    
+instance:terminate_datetime=2017/03/03 08:00 PM -0800
+```
+
+### How to Use these CATs
+
 1. [Download the policy CAT file from GitHub.](https://github.com/rs-services/policy-cats)
 1. Make any desired changes to the policy CAT.
 3. Upload and test the policy CAT. Use the Alert only option during testing. **Do not choose Alert and Delete until you are confident you know what will be deleted.**
