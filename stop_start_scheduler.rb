@@ -16,23 +16,35 @@ name 'Start/Stop Scheduler'
 short_description "![RS Policy](https://goo.gl/RAcMcU =64x64)
 
 Starts or stops instances based on a given schedule."
-long_description "![RS Policy](https://goo.gl/RAcMcU =64x64)
-This automated policy CloudApp will find instances specifically tagged for start or stop/terminate
-based on specific schedules.
+long_description "This automated policy CloudApp will find instances specifically tagged
+for start or stop/terminate based on a specific schedule.
 
-It is recommened to run this CloudApp with the Always On schedule unless you want to explicitly exclude times that instances could be started or stopped.
+It is recommened to run this CloudApp with the 'Always On' schedule
+unless you want to explicitly exclude times that instance(s) could be started or stopped.
+
+For an instance to be a candidate for scheduling actions managed by this CloudApp,
+a tag matching the chosen *Schedule Name* parameter (`ss_schedule_name`) should exist on the instance.
+Both RightScale-managed servers and plain instances are supported (including all clouds).
+
+The tag value needs to match an existing schedule within the RightScale Self-Service Schedule manager.
+The format of the tag is as follows:
+
+    instance:schedule=<name of ss schedule>
+
+For example, within schedule manager, create a new schedule for CloudApps to
+run between 7am and 11pm on all weekdays (M,T,W,T,F).
+On the desired instance(s), add the tag:
+
+    instance:schedule=7am-11pm Weekdays
+
+The CloudApp will poll the RightScale Cloud Management API frequently, stopping
+any instances running after 11pm or on weekends; and start instances that are
+currently stopped between 7am and 11pm on any weekday.
 
 - **Author**: Chris Fordham <chris.fordham@rightscale.com>
 - **Team**: RightScale Cloud Solutions Engineering"
 
 rs_ca_ver 20160622
-
-# To be a candidate for scheduling actions managed by this CloudApp,
-# instances must have a tag matching the ss_schedule_name parameter
-# which needs to exist as a schedule within Self-Service, for example:
-#
-#    instance:schedule=<name of ss schedule>
-#        e.g. instance:schedule=7am-11pm Weekdays
 
 # TODO (enhancements)
 # - implement option to schedule actions on managed servers only
