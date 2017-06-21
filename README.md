@@ -192,6 +192,7 @@ This policy CAT does not launch any instances, and so does not incur any cloud c
 
 ### EC2 Volume Tag Sync Policy
 **What it does**
+
 This policy CAT will find EC2 volumes and synchronize the AWS tags to RightScale tags. Synchronization is unidirectional from EC2 to RightScale, and is non destructive. If a tag is removed from the EC2 volume, it will persist in RightScale
 
 This policy CAT will only operate on EC2 regions you have registered in the RightScale dashboard.
