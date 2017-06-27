@@ -30,7 +30,7 @@ parameter "parameter_check_frequency" do
   category "User Inputs"
   label "Minutes between each check."
   type "number"
-  default 1
+  default 2
   min_value 1
 end
 
@@ -55,7 +55,6 @@ end
 parameter "parameter_sg_href" do
   category "User Inputs"
   label "Security Group HREF for Fastly IPs"
-  default "/api/clouds/2175/security_groups/CMUQG591J2GF7" # For Development only
   type "string"
 end
 
