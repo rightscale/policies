@@ -209,8 +209,6 @@ This policy CAT will quench alerts defined under a RightScale resource [deployme
 
 <img src="https://github.com/rs-services/policy-cats/blob/master/readme_images/quench_alerts_launchCloudApp.png" width="600">
 
-
-
 **Scheduling when the policy runs**
 
 To control the frequency that the policy CAT runs, you should [create a schedule and associate it with the CAT](http://docs.rightscale.com/ss/guides/ss_creating_schedules.html) in RightScale Self-Service.
