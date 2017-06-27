@@ -157,6 +157,7 @@ pingdom_https_EU
 ```
 
 **Cost**
+
 This policy CAT does not launch any instances, and so does not incur any cloud costs.
 
 
@@ -192,6 +193,7 @@ fastly_https
 ```
 
 **Cost**
+
 This policy CAT does not launch any instances, and so does not incur any cloud costs.
 
 
