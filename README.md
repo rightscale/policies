@@ -168,7 +168,7 @@ This policy CAT does not launch any instances, and so does not incur any cloud c
 
 **What it does**
 
-This policy CAT will maintain security group rules based on the current active probes published by Fastly's public feed [ https://api.fastly.com/public-ip-list ]. This policy can be used to manage the security group on the CDN origin resources.  The CloudApp checks periodically and validates only the IPs currently published are present in the Security Group specified at launch.  
+This policy CAT will maintain security group rules based on the current active probes published by Fastly's public feed [ https://api.fastly.com/public-ip-list ]. This policy can be used to automatically maintain the security group on the CDN origin resources and allow access specifically to Fastly.  The CloudApp checks periodically and validates only the IPs currently published are present in the Security Group specified at launch.  
 
 **Scheduling when the policy runs**
 
