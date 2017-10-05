@@ -14,7 +14,7 @@ You can use Cloud Application Templates (CATs) in RightScale Self Service to aut
 
 ### Instances
  * [Instance Runtime Policy](instances/instance_runtime_policy)
- * [Shutdown Scheduler](instances/shutdown_scheduler)
+ * [Shutdown Scheduler Policy](instances/shutdown_scheduler)
 
 ### Security Groups
  * [Fastly Security Group Policy](security_groups/fastly_security_group_policy)
