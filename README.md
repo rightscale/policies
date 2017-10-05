@@ -7,15 +7,6 @@ You can use Cloud Application Templates (CATs) in RightScale Self Service to aut
 
 **Important: You should test these CATs to ensure they work for your needs.**
 
-
-
-
-
-
-
-
-
-
 ## How to Use these CATs
 
 1. [Download the policy CAT file from GitHub.](https://github.com/rs-services/policy-cats)
