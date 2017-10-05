@@ -1,5 +1,3 @@
-<img src="https://image.freepik.com/free-icon/white-house-building_318-37808.jpg" align="left" height="48" width="48">
-
 # RightScale Policy CAT Files
 ## Overview
 
