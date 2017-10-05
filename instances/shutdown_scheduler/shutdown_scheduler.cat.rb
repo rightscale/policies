@@ -23,7 +23,7 @@ This policy CAT will find instances specifically tagged for shutdown or terminat
 It is recommended to run the CloudApp using the \"Always On\" schedule
 unless you want to explicitly exclude times that instances could be shutdown.
 
-For documentation including usage, see the [README](https://github.com/rs-services/policy-cats/blob/master/README.md).
+For documentation including usage, see the [README](https://github.com/rightscale/policy-cats/instances/shutdown_scheduler/README.md)
 
 - **Author**: Chris Fordham <chris.fordham@rightscale.com>
 - **Team**: RightScale Cloud Solutions Engineering"
