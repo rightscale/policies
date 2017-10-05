@@ -17,4 +17,4 @@ You can use Cloud Application Templates (CATs) in RightScale Self Service to aut
 ## Released CAT Files
 
 ### Alerts
-#### [quench_alert_policy](quench_alert_policy)
+* [Quench Alert Policy](alerts/quench_alert_policy) 
