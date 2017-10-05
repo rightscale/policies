@@ -9,7 +9,7 @@ You can use Cloud Application Templates (CATs) in RightScale Self Service to aut
 
 ## How to Use these CATs
 
-1. [Download the policy CAT file from GitHub.](https://github.com/rs-services/policy-cats)
+1. [Download the policy CAT file from GitHub.](https://github.com/rightscale/policy-cats)
 1. Make any desired changes to the policy CAT.
 3. Upload and test the policy CAT. Use the Alert only option during testing. **Do not choose Alert and Delete until you are confident you know what will be deleted.**
 4. [Create a schedule and associate it with the CAT.](http://docs.rightscale.com/ss/guides/ss_creating_schedules.html)
