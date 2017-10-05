@@ -13,7 +13,7 @@ You can choose to **Alert only** or **Alert and Terminate** the instances. We st
 
 The emails in the sample CAT are sent using a shared RightScale account of a free email service (mailgun). We have used a proxy, however, you may want to modify the CAT to use your own email service.
 
-<img src="https://github.com/rs-services/policy-cats/blob/master/readme_images/long_running_instance_screenshot.png" width="600">
+<img src="imgs/long_running_instance_screenshot.png" width="600">
 
 **Scheduling when the policy runs**
 
@@ -21,11 +21,8 @@ To control the frequency that the policy CAT runs, you should [create a schedule
 
 Specify the days of the week that you want the CAT to run. For example, if you want the policy CAT to run once a week on Monday, specify a schedule of only Monday. For the hours you should specify approximately a 30 minute time window for the policy CAT to complete. (It should take less than 15 minutes to run).
 
-<img src="https://github.com/rs-services/policy-cats/blob/master/readme_images/create_a_new_schedule.png">
+<img src="imgs/create_a_new_schedule.png">
 
 **Cost**
 
 This policy CAT does not launch any instances, and so does not incur any cloud costs.
-
-
-
