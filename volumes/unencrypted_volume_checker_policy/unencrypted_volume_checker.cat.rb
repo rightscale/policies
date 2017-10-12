@@ -75,15 +75,16 @@ define find_unencrypted_volumes() return $send_email do
 
   $$email_body = "<html><table>"
 
-  foreach $key in keys($links) do
-    $$email_body = $$email_body + "<tr><td>" + $key + "</td><td>" + $links[$key] + "</td></tr>"
+  foreach $key in sort(keys($links)) do
+    call cloud_lookup($key) retrieve $cloud_name
+    $$email_body = $$email_body + "<tr><td>" + $cloud_name + "</td><td>" + $key + "</td><td>" + $links[$key] + "</td></tr>"
   end
 
   $$email_body = $$email_body + "</table></html>"
   
   call send_email_mailgun($param_email)
 end
-  
+ 
 define find_account_name() return $account_name do
   $session_info = rs_cm.sessions.get(view: "whoami")
   $acct_link = select($session_info[0]["links"], {rel: "account"})
@@ -105,97 +106,75 @@ define send_email_mailgun($param_email) do
   )
 end
 
+define cloud_lookup($href) return $cloud_name do
+  $clouds = {
+    "/api/clouds/1"    => "AWS US-East",
+    "/api/clouds/2"    => "AWS EU-Ireland",
+    "/api/clouds/3"    => "AWS US-West",
+    "/api/clouds/4"    => "AWS AP-Singapore",
+    "/api/clouds/5"    => "AWS AP-Tokyo",
+    "/api/clouds/1415" => "CloudStack 2.2.13 - ESX",
+    "/api/clouds/6"    => "AWS US-Oregon",
+    "/api/clouds/7"    => "AWS SA-São Paulo",
+    "/api/clouds/1869" => "SoftLayer",
+    "/api/clouds/2181" => "Azure Southeast Asia",
+    "/api/clouds/2175" => "Google",
+    "/api/clouds/2182" => "Azure North Europe",
+    "/api/clouds/2183" => "Azure West Europe",
+    "/api/clouds/2324" => "Rackspace Open Cloud - Chicago",
+    "/api/clouds/8"    => "AWS AP-Sydney",
+    "/api/clouds/2374" => "Rackspace Open Cloud - Dallas",
+    "/api/clouds/2373" => "Rackspace Open Cloud - London",
+    "/api/clouds/2178" => "Azure West US",
+    "/api/clouds/2180" => "Azure East Asia",
+    "/api/clouds/2179" => "Azure East US",
+    "/api/clouds/2534" => "Rackspace Open Cloud - Sydney",
+    "/api/clouds/2879" => "Rivervale-vMware",
+    "/api/clouds/3032" => "RS-PS VM Test Env",
+    "/api/clouds/3037" => "vSphere Cloud",
+    "/api/clouds/9"    => "AWS EU-Frankfurt",
+    "/api/clouds/2535" => "BlueSkies",
+    "/api/clouds/3040" => "Azure Australia East",
+    "/api/clouds/10"   => "AWS China-Beijing",
+    "/api/clouds/3070" => "Openstack Juno",
+    "/api/clouds/3243" => "Cisco OpenStack",
+    "/api/clouds/3041" => "Azure Australia Southeast",
+    "/api/clouds/3338" => "Services UCA",
+    "/api/clouds/3342" => "RSUCA",
+    "/api/clouds/3301" => "Rivervale-CloudStack",
+    "/api/clouds/3351" => "MobileStackZ",
+    "/api/clouds/3391" => "RCA-V VMware 5.5 Services",
+    "/api/clouds/3518" => "AzureRM West US",
+    "/api/clouds/3519" => "AzureRM Japan East",
+    "/api/clouds/3520" => "AzureRM Southeast Asia",
+    "/api/clouds/3521" => "AzureRM Japan West",
+    "/api/clouds/3522" => "AzureRM East Asia",
+    "/api/clouds/3523" => "AzureRM East US",
+    "/api/clouds/3524" => "AzureRM West Europe",
+    "/api/clouds/3525" => "AzureRM North Central US",
+    "/api/clouds/3526" => "AzureRM Central US",
+    "/api/clouds/3527" => "AzureRM Canada Central",
+    "/api/clouds/3528" => "AzureRM North Europe",
+    "/api/clouds/3529" => "AzureRM Brazil South",
+    "/api/clouds/3530" => "AzureRM Canada East",
+    "/api/clouds/3531" => "AzureRM East US 2",
+    "/api/clouds/3532" => "AzureRM South Central US",
+    "/api/clouds/3499" => "Openstack Liberty",
+    "/api/clouds/11"   => "AWS US-Ohio",
+    "/api/clouds/13"   => "AWS EU-London",
+    "/api/clouds/14"   => "AWS CA-Central",
+    "/api/clouds/12"   => "AWS AP-Seoul",
+    "/api/clouds/3546" => "AzureRM West US 2",
+    "/api/clouds/3547" => "AzureRM West Central US",
+    "/api/clouds/3567" => "AzureRM UK South",
+    "/api/clouds/3568" => "AzureRM UK West",
+    "/api/clouds/3569" => "AzureRM West India",
+    "/api/clouds/3570" => "AzureRM Central India",
+    "/api/clouds/3571" => "AzureRM South India",
+    "/api/clouds/3655" => "RCAV-Test",
+    "/api/clouds/3658" => "RS OSS RCAV",
+    "/api/clouds/3482" => "VMware Private Cloud"
+  }
 
-
-
-
-
-
-
-##################################################################
-
-define gen_table() do
-$header=
-  "\<\!DOCTYPE html PUBLIC \"-\/\/W3C\/\/DTD XHTML 1.0 Transitional\/\/EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\"\>
-    <html xmlns=\"http:\/\/www.w3.org\/1999\/xhtml\">
-        <head>
-            <meta http-equiv=%22Content-Type%22 content=%22text/html; charset=UTF-8%22 />
-            <a href=%22//www.rightscale.com%22>
-<img src=%22https://assets.rightscale.com/6d1cee0ec0ca7140cd8701ef7e7dceb18a91ba20/web/images/logo.png%22 alt=%22RightScale Logo%22 width=%22200px%22 />
-</a>
-            <style></style>
-        </head>
-        <body>
-          <table border=%220%22 cellpadding=%220%22 cellspacing=%220%22 height=%22100%%22 width=%22100%%22 id=%22bodyTable%22>
-              <tr>
-                  <td align=%22left%22 valign=%22top%22>
-                      <table border=%220%22 cellpadding=%2220%22 cellspacing=%220%22 width=%22100%%22 id=%22emailContainer%22>
-                          <tr>
-                              <td align=%22left%22 valign=%22top%22>
-                                  <table border=%220%22 cellpadding=%2220%22 cellspacing=%220%22 width=%22100%%22 id=%22emailHeader%22>
-                                      <tr>
-                                          <td align=%22left%22 valign=%22top%22>
-                                             " + $email_msg + "
-                                          </td>
-                                      </tr>
-                                  </table>
-                              </td>
-                          </tr>
-                          <tr>
-                              <td align=%22left%22 valign=%22top%22>
-                                  <table border=%220%22 cellpadding=%2210%22 cellspacing=%220%22 width=%22100%%22 id=%22emailBody%22>
-                                      <tr>
-                                          <td align=%22left%22 valign=%22top%22>
-                                              Volume Name
-                                          </td>
-                                          <td align=%22left%22 valign=%22top%22>
-                                              Volume Size (GB)
-                                          </td>
-                                          <td align=%22left%22 valign=%22top%22>
-                                              Days Old
-                                          </td>
-                                          <td align=%22left%22 valign=%22top%22>
-                                              Volume Href
-                                          </td>
-                                          <td align=%22left%22 valign=%22top%22>
-                                              Cloud
-                                          </td>
-                                          <td align=%22left%22 valign=%22top%22>
-                                              Volume ID
-                                          </td>
-                                      </tr>
-                                      "
-      $list_of_volumes=""
-      $table_start="<td align=%22left%22 valign=%22top%22>"
-      $table_end="</td>"
-end
-
-
-
-
-##################### test
-
-define testing() return $links do
-  @volume_list = rs_cm.volumes.index(view: 'default')
-  $volume_list = to_object(@volume_list)
-  $unencrypted_vols = []
-  $links = {}
-
-  # Find unencrypted volumes
-  foreach $volume in $volume_list['details'] do
-    sub on_error: skip do
-      if $volume['cloud_specific_attributes']['encrypted'] == false
-        $unencrypted_vols << $volume
-      end
-    end
-  end
-
-  # Find volume HREF and name and add it to the $links hash
-  foreach $volume in $unencrypted_vols do
-    foreach $link in $volume['links'] do
-      if $link['rel'] == 'self'
-         $links[$link['href']] = $volume['name']
-      end
-    end
-  end
+  $cloud_name = $clouds[$href]
 end
