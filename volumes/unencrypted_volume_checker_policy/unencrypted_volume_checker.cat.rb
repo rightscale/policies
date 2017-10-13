@@ -85,9 +85,9 @@ define find_unencrypted_volumes() return $send_email do
   
   $$email_body = "<html><table>"
 
-  foreach $key in sort(keys($links)) do
-    call cloud_lookup($key) retrieve $cloud_name
-    $$email_body = $$email_body + "<tr><td>" + $cloud_name + "</td><td>" + $key + "</td><td>" + $links[$key] + "</td></tr>"
+  foreach $key in sort(keys($report_table)) do
+    call cloud_lookup($report_table[$key]['cloud_href']) retrieve $cloud_name
+    $$email_body = $$email_body + "<tr><td>" + $cloud_name + "</td><td>" + $key + "</td><td>" + $report_table[$key]['volume_name'] + "</td></tr>"
   end
 
   $$email_body = $$email_body + "</table></html>"
