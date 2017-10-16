@@ -107,7 +107,7 @@ define send_email_mailgun($param_email) do
   call find_account_name() retrieve $account_name
 
   $to = gsub($param_email,"@","%40")
-  $post_body="from=policy-cat%40services.rightscale.com&to=" + $to + "&subject=[" + $account_name + "] Stefhen+Testing&html=" + $$email_body
+  $post_body="from=policy-cat%40services.rightscale.com&to=" + $to + "&subject=[" + $account_name + "] Unencrypted+Volumes&html=" + $$email_body
 
   $response = http_post(
     url: $mailgun_endpoint,
