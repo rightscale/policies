@@ -1,7 +1,8 @@
 
 name 'Unattached Volume Policy'
 rs_ca_ver 20160622
-short_description "This automated policy CAT will find unattached volumes, send alerts, and optionally delete them."
+short_description "![RS Policy](https://goo.gl/RAcMcU =64x64)\n
+This automated policy CAT will find unattached volumes, send alerts, and optionally delete them."
 
 #Copyright 2017 RightScale
 #
@@ -128,7 +129,7 @@ define find_unattached_volumes($param_action) return $send_email do
                                               Volume Name
                                           </td>
                                           <td align=%22left%22 valign=%22top%22>
-                                              Volume Size
+                                              Volume Size (GB)
                                           </td>
                                           <td align=%22left%22 valign=%22top%22>
                                               Days Old
@@ -233,9 +234,10 @@ end
 
 define send_email_mailgun($to) do
   $mailgun_endpoint = "http://smtp.services.rightscale.com/v3/services.rightscale.com/messages"
+  call find_account_name() retrieve $account_name
 
    $to = gsub($to,"@","%40")
-   $post_body="from=policy-cat%40services.rightscale.com&to=" + $to + "&subject=Volume+Policy+Report&html=" + $$email_body
+   $post_body="from=policy-cat%40services.rightscale.com&to=" + $to + "&subject=[" + $account_name + "] Volume+Policy+Report&html=" + $$email_body
 
   $response = http_post(
      url: $mailgun_endpoint,

@@ -44,7 +44,7 @@ currently stopped between 7am and 11pm on any weekday.
 - **Author**: Chris Fordham <chris.fordham@rightscale.com>
 - **Team**: RightScale Cloud Solutions Engineering"
 
-rs_ca_ver 20160622
+rs_ca_ver 20161221
 
 # TODO (enhancements)
 # - implement option to schedule actions on managed servers only
