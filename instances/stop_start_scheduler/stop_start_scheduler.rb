@@ -39,23 +39,10 @@ On the desired instance(s), add the tag:
 
 The CloudApp will poll the RightScale Cloud Management API frequently, stopping
 any instances running after 11pm or on weekends; and start instances that are
-currently stopped between 7am and 11pm on any weekday.
+currently stopped between 7am and 11pm on any weekday."
 
 rs_ca_ver 20161221
 
-# TODO (enhancements)
-# - implement option to schedule actions on managed servers only
-# - exclude instances managed by CloudApps (likely not trivial)
-# - consider a basic API script to create 'popular' schedules in SS
-
-###
-# Global Mappings
-###
-
-###
-# User Inputs
-###
-# Changed back to text field -
 parameter 'ss_schedule_name' do
   category 'Scheduler Policy'
   label 'Schedule Name'
@@ -78,26 +65,6 @@ parameter 'email_recipients' do
   description 'A comma-separated list of email addresses to send reports to when actions are taken on instances.'
   type 'string'
 end
-
-# not yet implemented
-# parameter 'scheduler_servers_only' do
-#  category 'Scheduler Policy'
-#  label 'RightScale-managed servers only'
-  # commented-out as it doesn't display very nice with the checkbox in UI atm
-  # description 'Only include RightScale-managed servers in the scheduling.'
-#  type 'string'
-#  default 'false'
-#  allowed_values 'true', 'false'
-#end
-
-# not yet implemented
-# parameter 'scheduler_enforce_strict' do
-#   category 'Scheduler Policy'
-#   label 'Stop instances outside the schedule without a schedule tag'
-#   type 'string'
-#   default 'false'
-#   allowed_values 'true', 'false'
-# end
 
 parameter 'timezone_override' do
   category 'Advanced Options'
