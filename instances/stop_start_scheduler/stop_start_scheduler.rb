@@ -738,7 +738,7 @@ end
 define window_active($start_hour, $start_minute, $start_rule, $stop_hour, $stop_minute, $stop_rule, $tz) return $window_active do
   $params = {
     verb: 'get',
-    host: 'wntnr8sb68.execute-api.us-east-1.amazonaws.com',
+    host: 'gm2zkzuvdb.execute-api.ap-southeast-2.amazonaws.com',
     https: true,
     href: '/window_check',
     query_strings: {
