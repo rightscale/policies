@@ -41,9 +41,6 @@ The CloudApp will poll the RightScale Cloud Management API frequently, stopping
 any instances running after 11pm or on weekends; and start instances that are
 currently stopped between 7am and 11pm on any weekday.
 
-- **Author**: Chris Fordham <chris.fordham@rightscale.com>
-- **Team**: RightScale Cloud Solutions Engineering"
-
 rs_ca_ver 20161221
 
 # TODO (enhancements)
