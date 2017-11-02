@@ -170,9 +170,9 @@ define find_long_running_instances($param_days_old) return $send_email do
     #refactor.
     if $param_action == "Alert and Terminate"
 
-      $email_msg = "RightScale discovered <b>" + $number_of_instance_found + "</b> instances in <b>"+ $account_name +".</b> Per the policy set by your organization, these instances have been terminated and are no longer accessible"
+      $email_msg = "RightScale discovered <b>" + $number_of_instance_found + "</b> instances in <b>"+ gsub($account_name, "&","&amp;") +".</b> Per the policy set by your organization, these instances have been terminated and are no longer accessible"
     else
-      $email_msg = "RightScale discovered <b>" + $number_of_instance_found + "</b> instances in <b>"+ $account_name +"</b> that exceed your instance runtime policy of " + $param_days_old +" days."
+      $email_msg = "RightScale discovered <b>" + $number_of_instance_found + "</b> instances in <b>"+ gsub($account_name, "&","&amp;") +"</b> that exceed your instance runtime policy of " + $param_days_old +" days."
     end
 
 
@@ -251,7 +251,7 @@ define send_email_mailgun($to) do
      $subject = "Long Running Instances Report"
      $text = "You have the following long running instances"
 
-     $post_body="from=policy-cat%40services.rightscale.com&to=" + $to + "&subject=[" + $account_name + "] Instance+Policy+Report&html=" + $$email_body
+     $post_body="from=policy-cat%40services.rightscale.com&to=" + $to + "&subject=[" + gsub($account_name, "&","&amp;") + "] Instance+Policy+Report&html=" + $$email_body
 
 
   $$response = http_post(
