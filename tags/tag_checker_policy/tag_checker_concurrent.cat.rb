@@ -92,7 +92,7 @@ end
 define launch_tag_checker($param_tag_key,$param_email,$param_run_once) return $bad_instances do
   #call sys_log.set_task_target(@@deployment)
   #call sys_log.summary("Launch")
-  
+
   # add deployment tags for the parameters and then tell tag_checker to go
   rs_cm.tags.multi_add(resource_hrefs: [@@deployment.href], tags: [join(["tagchecker:tag_key=",$param_tag_key])])
   rs_cm.tags.multi_add(resource_hrefs: [@@deployment.href], tags: [join(["tagchecker:check_frequency=",$parameter_check_frequency])])
@@ -104,7 +104,7 @@ define launch_tag_checker($param_tag_key,$param_email,$param_run_once) return $b
     $time = now() + 30
     rs_ss.scheduled_actions.create(
       execution_id: @@execution.id,
-      action: "terminate", 
+      action: "terminate",
       first_occurrence: $time
     )
   end
@@ -140,9 +140,9 @@ define tag_checker() return $bad_instances do
       @instances_running = rs_cm.instances.get(filter: ["state==running"])
     end
   end
-  
+
   @instances = @instances_operational + @instances_provisioned + @instances_running
-  
+
   $instances_hrefs = to_object(@instances)["hrefs"]
   $$bad_instances_array=[]
 
@@ -157,7 +157,7 @@ define tag_checker() return $bad_instances do
       foreach $tag_entry in $tag_info_hash["tags"] do
         $tag_entry_ns_key_array << split($tag_entry["name"],"=")[0]
       end
-      
+
       # See if the desired keys are in the found tags and if not take note of the improperly tagged instances
       if logic_not(contains?($tag_entry_ns_key_array, $param_tag_keys_array))
         foreach $resource in $tag_info_hash["links"] do
@@ -169,7 +169,7 @@ define tag_checker() return $bad_instances do
 
   $bad_instances = to_s($$bad_instances_array)
   #call sys_log.detail($$bad_instances_array)
-  
+
   # Send an alert email if there is at least one improperly tagged instance
   if logic_not(empty?($$bad_instances_array))
     call send_tags_alert_email($tag_key,$param_email)
@@ -218,7 +218,7 @@ define send_tags_alert_email($tags,$to) do
   $subject = "Tag Checker Policy: "
   $from = "policy-cat@services.rightscale.com"
   $email_msg = "RightScale discovered that the following instance are missing tags <b>" + $tags + "</b> in <b>"+ $account_name +".</b> Per the policy set by your organization, these instances are not compliant"
-  
+
   $table_start="<td align=%22left%22 valign=%22top%22>"
   $table_end="</td>"
   $header="
@@ -283,8 +283,8 @@ define send_tags_alert_email($tags,$to) do
     </body>
   </html>"
 
-  $list_of_instances=""
-  concurrent foreach $instance in $$bad_instances_array do
+  $$list_of_instances=""
+  foreach $instance in $$bad_instances_array do
     $$instance_error = 'false'
     @server = rs_cm.servers.empty()
 
@@ -292,48 +292,50 @@ define send_tags_alert_email($tags,$to) do
       @server = rs_cm.get(href: $instance)
     end
 
+    $server_object = to_object(@server)
+
     if $$instance_error == 'true'
       #issue with the instance, may no longer exists
     else
       #call sys_log.detail("Instance Href: " + $instance)
-      
+
       # Get instance name
-      if @server.state == 'provisioned'
-        $instance_name = @server.resource_uid
+      if $server_object["details"][0]["state"] == 'provisioned'
+        $instance_name = $server_object["details"][0]["resource_uid"]
       else
-        $instance_name = @server.name
+        $instance_name = $server_object["details"][0]["name"]
       end
       if $instance_name == null
         $instance_name = 'unknown'
       end
       #call sys_log.detail("Instance Name: " + $instance_name)
-      
+
       # Get server state
-      if @server.state == null
+      if $server_object["details"][0]["state"] == null
         $instance_state = 'unknown'
       else
-        $instance_state = @server.state
+        $instance_state = $server_object["details"][0]["state"]
       end
       #call sys_log.detail("Instance State: " + $instance_state)
 
       # Get server access link
       $server_access_link_root = 'unknown'
       sub on_error: skip do
-        call get_server_access_link(@server.href) retrieve $server_access_link_root
+        call get_server_access_link($instance) retrieve $server_access_link_root
       end
       if $server_access_link_root == null
         $server_access_link_root = 'unknown'
       end
       #call sys_log.detail("Instance Link: " + $server_access_link_root)
-      
+
       # Create the instance table
       $instance_table = "<tr>" + $table_start + $instance_name + $table_end + $table_start + $instance_state + $table_end + $table_start + $server_access_link_root + $table_end + "</tr>"
       #call sys_log.detail("Instance Table Entry:" + $instance_table)
-      insert($list_of_instances, -1, $instance_table)
+      insert($$list_of_instances, -1, $instance_table)
     end
   end
 
-  $email_body = $header + $list_of_instances + $footer
+  $email_body = $header + $$list_of_instances + $footer
 
   call send_html_email($to, $from, $subject, $email_body) retrieve $response
 
