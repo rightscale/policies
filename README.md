@@ -2,7 +2,7 @@
 
 ## Overview
 
-You can use Cloud Application Templates (CATs) in RightScale Self Service to automate policies. We have created sample policy CATs that you can use as a starting point. These are provided solely as samples under an Apache 2.0 open source license with no warranties.
+You can use Cloud Application Templates (CATs) in RightScale Self Service to automate policies. These are provided solely as samples under an Apache 2.0 open source license with no warranties.
 
 **Important: You should test these CATs to ensure they work for your needs.**
 
@@ -33,3 +33,20 @@ You can use Cloud Application Templates (CATs) in RightScale Self Service to aut
 
 ### Volumes
  * [Unattached Volume Policy](volumes/unattached_volume_policy)
+ * [Unencrypted Volume Checker Policy](volumes/unencrypted_volume_checker_policy)
+
+## RightScale Cloud Workflow Documentation
+- [Cloud Workflow Language](http://docs.rightscale.com/ss/reference/rcl/v2/index.html)
+- [Cloud Workflow Functions](http://docs.rightscale.com/ss/reference/rcl/v2/ss_RCL_functions.html)
+- [Cloud Workflow Operators](http://docs.rightscale.com/ss/reference/rcl/v2/ss_RCL_operators.html)
+
+## Getting Help
+Support for these Policies will be provided though GitHub Issues and the RightScale public slack channel #policies.
+Visit http://chat.rightscale.com/ to join!
+
+### Opening an Issue
+Github issues contain a template for three types of requests (Bugs, New Features to an existing Policy, New Policy Request)
+
+- Bugs: Any issue you are having with an existing Policy not functioning correctly, this does not include missing features, or actions.
+- New Feature Request: Any feature that are to be added to an existing Policy. 
+- New Policy Request: Request for a new Policy

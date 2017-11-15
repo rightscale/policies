@@ -27,7 +27,7 @@ name 'Tag Checker'
 rs_ca_ver 20161221
 short_description "![Tag](https://s3.amazonaws.com/rs-pft/cat-logos/tag.png)\n
 Check for a tag and report which instances are missing it."
-long_description "Uses RCL to check for a tag and report which instances are missing it."
+long_description "Version: 1.0"
 #import "sys_log"
 
 ##################
