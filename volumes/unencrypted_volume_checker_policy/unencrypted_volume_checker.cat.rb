@@ -1,6 +1,7 @@
 name 'Encrypted Volume Checker Policy'
 rs_ca_ver 20161221
 short_description 'This automated policy CAT will find unencrypted EBS volumes and generate a report of them.'
+long_description "Version: 1.0"
 
 #Copyright 2017 RightScale
 #

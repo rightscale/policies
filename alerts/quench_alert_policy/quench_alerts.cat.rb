@@ -1,6 +1,7 @@
 name 'Quench Alerts'
 rs_ca_ver 20160622
 short_description "Quenches alerts on a resource for a specified amount of time"
+long_description "Version: 1.0"
 
 #Copyright 2017 RightScale
 #

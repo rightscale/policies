@@ -1,32 +1,25 @@
-# Copyright 2017 RightScale
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 name 'Shutdown Scheduler'
 short_description "![RS Policy](https://goo.gl/RAcMcU =64x64)\n
 Stops or terminates instances based on the existance of specific tags containing a date and time."
-long_description "![RS Policy](https://goo.gl/RAcMcU =64x64)
-This automated policy CloudApp will find instances specifically tagged for shutdown and or terminate.
+long_description "Version: 1.0"
+#Copyright 2017 RightScale
+#
+#Licensed under the Apache License, Version 2.0 (the "License");
+#you may not use this file except in compliance with the License.
+#You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+#Unless required by applicable law or agreed to in writing, software
+#distributed under the License is distributed on an "AS IS" BASIS,
+#WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#See the License for the specific language governing permissions and
+#limitations under the License.
 
-This policy CAT will find instances specifically tagged for shutdown or termination and applies that action once the shutdown date in the tag value is reached or exceeded.
+#RightScale Cloud Application Template (CAT)
 
-It is recommended to run the CloudApp using the \"Always On\" schedule
-unless you want to explicitly exclude times that instances could be shutdown.
-
-For documentation including usage, see the [README](https://github.com/rightscale/policy-cats/instances/shutdown_scheduler/README.md)
-
-- **Author**: Chris Fordham <chris.fordham@rightscale.com>
-- **Team**: RightScale Cloud Solutions Engineering"
+# DESCRIPTION
+#  This policy CAT will find instances specifically tagged for shutdown or termination and applies that action once the shutdown date in the tag value is reached or exceeded.  It is recommended to run the CloudApp using the \"Always On\" schedule unless you want to explicitly exclude times that instances could be shutdown. 
 
 rs_ca_ver 20160622
 

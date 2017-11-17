@@ -1,4 +1,4 @@
-### EC2 Tag Checker Policy
+### Tag Checker Policy
 
 **What it does**
 

@@ -1,6 +1,7 @@
 name 'Pingdom Security Group Rules'
 rs_ca_ver 20160622
 short_description "Pingdom Security Group Rules"
+long_description "Version: 1.0"
 
 #Copyright 2017 RightScale
 #
