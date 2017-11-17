@@ -27,7 +27,7 @@ name 'Tag Checker (Concurrent)'
 rs_ca_ver 20161221
 short_description "![Tag](https://s3.amazonaws.com/rs-pft/cat-logos/tag.png)\n
 Check for a tag and report which instances are missing it."
-long_description "Uses RCL to check for a tag and report which instances are missing it."
+long_description "Version: 1.1"
 #import "sys_log"
 
 ##################
@@ -129,24 +129,28 @@ define tag_checker() return $bad_instances do
     end
   end
 
-  concurrent return @instances_operational, @instances_provisioned, @instances_running do
+  #concurrent return @instances_operational, @instances_provisioned, @instances_running do
+  concurrent return $operational_instances_hrefs, $provisioned_instances_hrefs, $running_instances_hrefs do  
     sub do
       @instances_operational = rs_cm.instances.get(filter: ["state==operational"])
+      $operational_instances_hrefs = to_object(@instances_operational)["hrefs"]
     end
     sub do
       @instances_provisioned = rs_cm.instances.get(filter: ["state==provisioned"])
+      $provisioned_instances_hrefs = to_object(@instances_provisioned)["hrefs"]
     end
     sub do
       @instances_running = rs_cm.instances.get(filter: ["state==running"])
+      $running_instances_hrefs = to_object(@instances_running)["hrefs"]
     end
   end
 
-  @instances = @instances_operational + @instances_provisioned + @instances_running
+  #@instances = @instances_operational + @instances_provisioned + @instances_running
+  #$instances_hrefs = to_object(@instances)["hrefs"]
+  $instances_hrefs = $operational_instances_hrefs + $provisioned_instances_hrefs + $running_instances_hrefs
 
-  $instances_hrefs = to_object(@instances)["hrefs"]
   $$bad_instances_array=[]
-
-  concurrent foreach $hrefs in $instances_hrefs do
+  foreach $hrefs in $instances_hrefs do
     $instances_tags = rs_cm.tags.by_resource(resource_hrefs: [$hrefs])
     $tag_info_array = $instances_tags[0]
     # Loop through the tag info array and find any entries which DO NOT reference the tag(s) in question.
