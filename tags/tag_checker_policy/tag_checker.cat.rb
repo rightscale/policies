@@ -27,8 +27,7 @@ name 'Tag Checker'
 rs_ca_ver 20161221
 short_description "![Tag](https://s3.amazonaws.com/rs-pft/cat-logos/tag.png)\n
 Check for a tag and report which instances are missing it."
-long_description "Version: 1.0"
-#import "sys_log"
+long_description "Version: 1.2"
 
 ##################
 # User inputs    #
@@ -92,7 +91,7 @@ end
 define launch_tag_checker($param_tag_key,$param_email,$param_run_once) return $bad_instances do
   #call sys_log.set_task_target(@@deployment)
   #call sys_log.summary("Launch")
-  
+
   # add deployment tags for the parameters and then tell tag_checker to go
   rs_cm.tags.multi_add(resource_hrefs: [@@deployment.href], tags: [join(["tagchecker:tag_key=",$param_tag_key])])
   rs_cm.tags.multi_add(resource_hrefs: [@@deployment.href], tags: [join(["tagchecker:check_frequency=",$parameter_check_frequency])])
@@ -104,7 +103,7 @@ define launch_tag_checker($param_tag_key,$param_email,$param_run_once) return $b
     $time = now() + 30
     rs_ss.scheduled_actions.create(
       execution_id: @@execution.id,
-      action: "terminate", 
+      action: "terminate",
       first_occurrence: $time
     )
   end
@@ -129,14 +128,24 @@ define tag_checker() return $bad_instances do
     end
   end
 
-  @instances_operational = rs_cm.instances.get(filter: ["state==operational"])
-  @instances_provisioned = rs_cm.instances.get(filter: ["state==provisioned"])
-  @instances_running = rs_cm.instances.get(filter: ["state==running"])
-  @instances = @instances_operational + @instances_provisioned + @instances_running
-  
-  $instances_hrefs = to_object(@instances)["hrefs"]
-  $$bad_instances_array=[]
+  concurrent return $operational_instances_hrefs, $provisioned_instances_hrefs, $running_instances_hrefs do  
+    sub do
+      @instances_operational = rs_cm.instances.get(filter: ["state==operational"])
+      $operational_instances_hrefs = to_object(@instances_operational)["hrefs"]
+    end
+    sub do
+      @instances_provisioned = rs_cm.instances.get(filter: ["state==provisioned"])
+      $provisioned_instances_hrefs = to_object(@instances_provisioned)["hrefs"]
+    end
+    sub do
+      @instances_running = rs_cm.instances.get(filter: ["state==running"])
+      $running_instances_hrefs = to_object(@instances_running)["hrefs"]
+    end
+  end
 
+  $instances_hrefs = $operational_instances_hrefs + $provisioned_instances_hrefs + $running_instances_hrefs
+
+  $$bad_instances_array=[]
   foreach $hrefs in $instances_hrefs do
     $instances_tags = rs_cm.tags.by_resource(resource_hrefs: [$hrefs])
     $tag_info_array = $instances_tags[0]
@@ -156,10 +165,9 @@ define tag_checker() return $bad_instances do
         end
       end
     end
-    $$bad_instances = to_s($$bad_instances_array)
   end
-  
-  #call sys_log.detail($$bad_instances_array)
+
+  $bad_instances = to_s($$bad_instances_array)
 
   # Send an alert email if there is at least one improperly tagged instance
   if logic_not(empty?($$bad_instances_array))
@@ -171,7 +179,6 @@ end
 define find_shard() return $shard_number do
   $account = rs_cm.get(href: "/api/accounts/" + $$account_number)
   $shard_number = last(split(select($account[0]["links"], {"rel":"cluster"})[0]["href"],"/"))
-  #call sys_log.detail("RS Account Shard: " + $shard_number)
 end
 
 define find_account_name() return $account_name do
@@ -179,7 +186,6 @@ define find_account_name() return $account_name do
   $acct_link = select($session_info[0]["links"], {rel: "account"})
   $acct_href = $acct_link[0]["href"]
   $account_name = rs_cm.get(href: $acct_href).name
-  #call sys_log.detail("RS Account Name: " + $account_name)
 end
 
 define get_tags_for_resource(@resource) return $tags do
@@ -209,7 +215,7 @@ define send_tags_alert_email($tags,$to) do
   $subject = "Tag Checker Policy: "
   $from = "policy-cat@services.rightscale.com"
   $email_msg = "RightScale discovered that the following instance are missing tags <b>" + $tags + "</b> in <b>"+ $account_name +".</b> Per the policy set by your organization, these instances are not compliant"
-  
+
   $table_start="<td align=%22left%22 valign=%22top%22>"
   $table_end="</td>"
   $header="
@@ -274,7 +280,7 @@ define send_tags_alert_email($tags,$to) do
     </body>
   </html>"
 
-  $list_of_instances=""
+  $$list_of_instances=""
   foreach $instance in $$bad_instances_array do
     $$instance_error = 'false'
     @server = rs_cm.servers.empty()
@@ -283,48 +289,44 @@ define send_tags_alert_email($tags,$to) do
       @server = rs_cm.get(href: $instance)
     end
 
+    $server_object = to_object(@server)
+
     if $$instance_error == 'true'
       #issue with the instance, may no longer exists
     else
-      #call sys_log.detail("Instance Href: " + $instance)
-      
       # Get instance name
-      if @server.state == 'provisioned'
-        $instance_name = @server.resource_uid
+      if $server_object["details"][0]["state"] == 'provisioned'
+        $instance_name = $server_object["details"][0]["resource_uid"]
       else
-        $instance_name = @server.name
+        $instance_name = $server_object["details"][0]["name"]
       end
       if $instance_name == null
         $instance_name = 'unknown'
       end
-      #call sys_log.detail("Instance Name: " + $instance_name)
-      
+
       # Get server state
-      if @server.state == null
+      if $server_object["details"][0]["state"] == null
         $instance_state = 'unknown'
       else
-        $instance_state = @server.state
+        $instance_state = $server_object["details"][0]["state"]
       end
-      #call sys_log.detail("Instance State: " + $instance_state)
 
       # Get server access link
       $server_access_link_root = 'unknown'
       sub on_error: skip do
-        call get_server_access_link(@server.href) retrieve $server_access_link_root
+        call get_server_access_link($instance) retrieve $server_access_link_root
       end
       if $server_access_link_root == null
         $server_access_link_root = 'unknown'
       end
-      #call sys_log.detail("Instance Link: " + $server_access_link_root)
-      
+
       # Create the instance table
       $instance_table = "<tr>" + $table_start + $instance_name + $table_end + $table_start + $instance_state + $table_end + $table_start + $server_access_link_root + $table_end + "</tr>"
-      #call sys_log.detail("Instance Table Entry:" + $instance_table)
-      insert($list_of_instances, -1, $instance_table)
+      insert($$list_of_instances, -1, $instance_table)
     end
   end
 
-  $email_body = $header + $list_of_instances + $footer
+  $email_body = $header + $$list_of_instances + $footer
 
   call send_html_email($to, $from, $subject, $email_body) retrieve $response
 
@@ -360,7 +362,6 @@ end
 define find_account_number() return $account_id do
   $session = rs_cm.sessions.index(view: "whoami")
   $account_id = last(split(select($session[0]["links"], {"rel":"account"})[0]["href"],"/"))
-  #call sys_log.detail("RS Account Number: " + $account_id)
 end
 
 define get_server_access_link($instance_href) return $server_access_link_root do
@@ -382,8 +383,6 @@ define get_server_access_link($instance_href) return $server_access_link_root do
   else
     $legacy_id = $instance_of_interest["legacy_id"]
   end
-
-  #call sys_log.detail("Legacy ID: " + $legacy_id)
 
   $data = split($instance_href, "/")
   $cloud_id = $data[3]
