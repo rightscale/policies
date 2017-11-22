@@ -1,5 +1,17 @@
 # Change Log
 
+## [Week-of-11-20-2017](https://github.com/rightscale/policies/tree/Week-of-11-20-2017) (2017-11-22)
+[Full Changelog](https://github.com/rightscale/policies/compare/Week-of-11-13-2017...Week-of-11-20-2017)
+
+**Fixed bugs:**
+
+- Policy tag checker runs very long and abort when there are many resources and tags [\#31](https://github.com/rightscale/policies/issues/31)
+
+**Merged pull requests:**
+
+- Tag Checker - Add validation to Email parameter  [\#36](https://github.com/rightscale/policies/pull/36) ([kramfs](https://github.com/kramfs))
+- Tag Checker - Bug Fix for Issue \#31  [\#34](https://github.com/rightscale/policies/pull/34) ([dfrankel33](https://github.com/dfrankel33))
+
 ## [Week-of-11-13-2017](https://github.com/rightscale/policies/tree/Week-of-11-13-2017) (2017-11-15)
 **Fixed bugs:**
 
