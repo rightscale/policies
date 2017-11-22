@@ -27,7 +27,7 @@ name 'Tag Checker'
 rs_ca_ver 20161221
 short_description "![Tag](https://s3.amazonaws.com/rs-pft/cat-logos/tag.png)\n
 Check for a tag and report which instances are missing it."
-long_description "Version: 1.2"
+long_description "Version: 1.3"
 
 ##################
 # User inputs    #
@@ -45,6 +45,7 @@ parameter "param_email" do
   category "Contact"
   label "Email addresses (separate with commas)"
   type "string"
+  allowed_pattern '^([a-zA-Z0-9-_.]+[@]+[a-zA-Z0-9-_.]+[.]+[a-zA-Z0-9-_]+,*)+$'
   min_length 6
 end
 
