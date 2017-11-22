@@ -45,6 +45,7 @@ parameter "param_email" do
   category "Contact"
   label "Email addresses (separate with commas)"
   type "string"
+  allowed_pattern '^([a-zA-Z0-9-_.]+[@]+[a-zA-Z0-9-_.]+[.]+[a-zA-Z0-9-_]+,*)+$'
   min_length 6
 end
 
