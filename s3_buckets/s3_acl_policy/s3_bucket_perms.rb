@@ -1,6 +1,6 @@
 name 'S3 Bucket ACL Policy'
 rs_ca_ver 20161221
-short_description "![RS Policy](https://www.shareicon.net/data/512x512/2015/08/28/92171_bucket_512x512.png =64x64)\n
+short_description "![RS Policy](https://raw.githubusercontent.com/rightscale/policies/master/s3_buckets/s3_acl_policy/imgs/bucket_icon.png =64x64)\n
 This automated policy CAT will provide a report on S3 Buckets in your AWS account."
 long_description "Version: 1.0"
 import "sys_log"
@@ -73,19 +73,19 @@ end
 # Definitions    #
 ##################
 
-define launch($param_email, $param_all_buckets, $param_pub_read, $param_pub_write) return $param_email do
-        call find_s3_buckets($param_all_buckets, $param_pub_read, $param_pub_write) retrieve $send_email
+define launch($param_email, $param_all_buckets, $param_pub_read, $param_pub_write) return $param_email,$send_email,$number_of_buckets,$target_buckets,$buckets_array do
+        call find_s3_buckets($param_all_buckets, $param_pub_read, $param_pub_write) retrieve $send_email,$number_of_buckets,$target_buckets,$buckets_array
         sleep(20)
         if $send_email == "true"
           call send_email_mailgun($param_email)
         end
 end
 
-define find_s3_buckets($param_all_buckets, $param_pub_read, $param_pub_write) return $send_email do
+define find_s3_buckets($param_all_buckets, $param_pub_read, $param_pub_write) return $send_email,$number_of_buckets,$target_buckets,$buckets_array do
   call list_s3_buckets() retrieve $bucket_names
   $buckets_array = []
   foreach $bucket_name in $bucket_names do
-    call get_analyze_bucket_acl($bucket_name) retrieve $bucket_hash
+    call get_analyze_bucket_acl($bucket_name) retrieve $bucket_hash,$api_response
     $buckets_array << $bucket_hash
   end
 
@@ -94,9 +94,11 @@ define find_s3_buckets($param_all_buckets, $param_pub_read, $param_pub_write) re
   $table_end="</td>"
   $target_buckets = []
   if $param_all_buckets == "true"
+    call sys_log.detail("Selected: ALL BUCKETS")
     $target_buckets = $buckets_array
   else    
     if $param_pub_read == "true" && $param_pub_write == "false"
+      call sys_log.detail("Selected: READ ONLY")
       foreach $bucket in $buckets_array do         
         if $bucket["public_read"] == "true"
           $target_buckets << $bucket
@@ -105,6 +107,7 @@ define find_s3_buckets($param_all_buckets, $param_pub_read, $param_pub_write) re
     end
 
     if $param_pub_read == "false" && $param_pub_write == "true"
+      call sys_log.detail("Selected: WRITE ONLY")
       foreach $bucket in $buckets_array do  
         if $bucket["public_write"] == "true"
           $target_buckets << $bucket
@@ -113,6 +116,7 @@ define find_s3_buckets($param_all_buckets, $param_pub_read, $param_pub_write) re
     end
 
     if $param_pub_read == "true" && $param_pub_write == "true"
+      call sys_log.detail("Selected: READ-WRITE")
       foreach $bucket in $buckets_array do 
         if $bucket["public_write"] == "true" || $bucket["public_read"] == "true"
           $target_buckets << $bucket
@@ -201,7 +205,7 @@ define list_s3_buckets() return $bucket_names do
   call sys_log.detail("Bucket List: " + to_s($bucket_names))
 end
 
-define get_analyze_bucket_acl($bucket_name) return $hash do
+define get_analyze_bucket_acl($bucket_name) return $hash,$response do
   $hash = {}
   if $bucket_name =~ "^([A-Z])"
     call sys_log.detail("Skipping Bucket due to Capital Letter in Name: " + $bucket_name)
