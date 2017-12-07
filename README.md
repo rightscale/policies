@@ -35,6 +35,9 @@ You can use Cloud Application Templates (CATs) in RightScale Self Service to aut
  * [Unattached Volume Policy](volumes/unattached_volume_policy)
  * [Unencrypted Volume Checker Policy](volumes/unencrypted_volume_checker_policy)
 
+### S3 Buckets
+* [S3 Buckets ACL Policy](s3_buckets/s3_acl_policy)
+
 ## RightScale Cloud Workflow Documentation
 - [Cloud Workflow Language](http://docs.rightscale.com/ss/reference/rcl/v2/index.html)
 - [Cloud Workflow Functions](http://docs.rightscale.com/ss/reference/rcl/v2/ss_RCL_functions.html)
