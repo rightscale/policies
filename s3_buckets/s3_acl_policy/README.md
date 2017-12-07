@@ -10,9 +10,9 @@ You can choose to report on all S3 Buckets, Buckets that allow public READ acces
 
 **Limitations**
 
-S3 Buckets that include capital letters in their name do not meet AWS best practices for bucket naming, and as a result, the Bucket cannot be interacted with via the S3 API.  These buckets will continue to be listed on the **All Buckets** Report, but the Public Read & Public Write columns will indicate `unknown`.  It is highly recommended to migrate these buckets to newly named buckets without capital letters.
+1. S3 Buckets that include capital letters in their name do not meet AWS best practices for bucket naming, and as a result, the Bucket cannot be interacted with via the S3 API.  These buckets will continue to be listed on the **All Buckets** Report, but the Public Read & Public Write columns will indicate `unknown`.  It is highly recommended to migrate these buckets to newly named buckets without capital letters.
 
-
+1. The AWS account owner must have permissions to Read Bucket Permissions on the bucket.
 
 **Notifications (Email)**
 
