@@ -1,5 +1,12 @@
 # Change Log
 
+## [Week-of-12-07-2017](https://github.com/rightscale/policies/tree/Week-of-12-07-2017) (2017-12-07)
+[Full Changelog](https://github.com/rightscale/policies/compare/Week-of-11-20-2017...Week-of-12-07-2017)
+
+**Merged pull requests:**
+
+- S3 Buckets ACL Policy [\#38](https://github.com/rightscale/policies/pull/38) ([dfrankel33](https://github.com/dfrankel33))
+
 ## [Week-of-11-20-2017](https://github.com/rightscale/policies/tree/Week-of-11-20-2017) (2017-11-22)
 [Full Changelog](https://github.com/rightscale/policies/compare/Week-of-11-13-2017...Week-of-11-20-2017)
 
