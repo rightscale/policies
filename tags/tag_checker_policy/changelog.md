@@ -1,5 +1,9 @@
 Tag Checker Policy changelog
 
+v1.4
+----
+- adding advanced tag matching.  See [README](for details)
+
 v1.3
 -----
 - add regex validation to "email addresses" parameter
