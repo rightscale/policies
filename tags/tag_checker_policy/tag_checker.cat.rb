@@ -36,9 +36,9 @@ parameter "param_tag_key" do
   category "User Inputs"
   label "Tags' Namespace:Keys List"
   type "string"
-  description "Comma-separated list of Tags' Namespace:Keys to audit. For example: \"ec2:project_code\" or \"bu:id\""
-  min_length 3
-  allowed_pattern '^([a-zA-Z0-9-_]+:[a-zA-Z0-9-_]+,*)+$'
+  description "Comma-separated list of Tags' Namespace:Keys to audit. For example: \"ec2:project_code\" or \"bu:id\"."
+  # allow namespace:key or nothing
+  allowed_pattern '^([a-zA-Z0-9-_]+:[a-zA-Z0-9-_]+,*|)+$'
 end
 
 parameter "param_advanced_tag_key" do
@@ -46,8 +46,8 @@ parameter "param_advanced_tag_key" do
   label "Tags' Namespace:Keys Advanced List."
   type "string"
   description "A JSON string or publc HTTP URL to json file."
-  min_length 3
-  #allowed_pattern '^({|http)+$'
+  #allow http, {*} or nothing.
+  allowed_pattern '^(http|\{.*\}|)'
 end
 
 parameter "param_email" do
@@ -100,8 +100,12 @@ end
 # Go through and find improperly tagged instances
 define launch_tag_checker($param_tag_key,$param_advanced_tag_key,$param_email,$param_run_once) return $bad_instances do
   # add deployment tags for the parameters and then tell tag_checker to go
-  rs_cm.tags.multi_add(resource_hrefs: [@@deployment.href], tags: [join(["tagchecker:tag_key=",$param_tag_key])])
-  rs_cm.tags.multi_add(resource_hrefs: [@@deployment.href], tags: [join(["tagchecker:advanced_tag_key=",$param_advanced_tag_key])])
+  if $param_tag_key != ""
+    rs_cm.tags.multi_add(resource_hrefs: [@@deployment.href], tags: [join(["tagchecker:tag_key=",$param_tag_key])])
+  end
+  if $param_advanced_tag_key != ""
+    rs_cm.tags.multi_add(resource_hrefs: [@@deployment.href], tags: [join(["tagchecker:advanced_tag_key=",$param_advanced_tag_key])])
+  end
 
   call tag_checker() retrieve $bad_instances
 
@@ -129,9 +133,15 @@ define tag_checker() return $bad_instances do
     if $current_tag =~ "(tagchecker:tag_key)"
       $tag_key = last(split($current_tag,"="))
     elsif $current_tag =~ "(tagchecker:advanced_tag_key)"
-      $value =  last(split($current_tag,"="))
-      $advanced_tags = from_json($value)
-      $advanced_tag_keys = keys($advanced_tags)
+      $advanced_tag_key_value =  last(split($current_tag,"="))
+      if $advanced_tag_key_value =~ /^http/
+        $json = http_get({ url: $advanced_tag_key_value})
+        $advanced_tags = $json
+        $advanced_tag_keys = keys($advanced_tags)
+      else
+        $advanced_tags = from_json($advanced_tag_key_value)
+        $advanced_tag_keys = keys($advanced_tags)
+      end
     end
   end
 
@@ -167,7 +177,7 @@ define tag_checker() return $bad_instances do
     # check for missing tags
     call check_tag_key($tag_info_array,$param_tag_keys_array)
     # check for incorrect tag values
-    call check_tag_value($tag_info_array, $advanced_tags,$advanced_tag_keys)
+    call check_tag_value($tag_info_array, $advanced_tags)
 
   end
 
@@ -413,19 +423,38 @@ define check_tag_key($tag_info_array,$param_tag_keys_array) do
 end
 
 # check list of resource tags with advanced validation
-define check_tag_value($tag_info_array,$advanced_tags,$advanced_tag_keys) do
+define check_tag_value($tag_info_array,$advanced_tags) do
   foreach $tag_info_hash in $tag_info_array do
     # Create an array of the tags' namespace:key parts
     $tag_entry_ns_key_array=[]
     foreach $tag_entry in $tag_info_hash["tags"] do
       $tag_entry_ns_key_array << split($tag_entry["name"],"=")[0]
-      
-    end
-
-    # See if the desired keys are in the found tags and if not take note of the improperly tagged instances
-    if logic_not(contains?($tag_entry_ns_key_array, $param_tag_keys_array))
-      foreach $resource in $tag_info_hash["links"] do
-        $$bad_instances_array << $resource["href"]
+      $tag_value = split($tag_entry["name"],"=")[1]
+      foreach $tag_key in $tag_entry_ns_key_array do
+        # find instance without values in validation array
+        if $advanced_tags[$tag_key] && $advanced_tags[$tag_key]['validation-type']=='array'
+          if !contains?($advanced_tags[$tag_key]['validation'],[$tag_value])
+              foreach $resource in $tag_info_hash["links"] do
+                $$bad_instances_array << $resource["href"]
+              end
+          end
+        end
+        # find instance without value in validation string
+        if $advanced_tags[$tag_key] && $advanced_tags[$tag_key]['validation-type']=='string'
+          if $tag_value != $advanced_tags[$tag_key]['validation']
+              foreach $resource in $tag_info_hash["links"] do
+                $$bad_instances_array << $resource["href"]
+              end
+          end
+        end
+        # find instance without values in validation regex
+        if $advanced_tags[$tag_key] && $advanced_tags[$tag_key]['validation-type']=='regex'
+          if $tag_value !~ $advanced_tags[$tag_key]['validation']
+              foreach $resource in $tag_info_hash["links"] do
+                $$bad_instances_array << $resource["href"]
+              end
+          end
+        end
       end
     end
   end
