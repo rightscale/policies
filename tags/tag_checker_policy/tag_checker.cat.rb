@@ -27,7 +27,7 @@ name 'Tag Checker'
 rs_ca_ver 20161221
 short_description "![Tag](https://s3.amazonaws.com/rs-pft/cat-logos/tag.png)\n
 Check for a tag and report which instances are missing it."
-long_description "Version: 1.3"
+long_description "Version: 1.4"
 
 ##################
 # User inputs    #
@@ -36,9 +36,18 @@ parameter "param_tag_key" do
   category "User Inputs"
   label "Tags' Namespace:Keys List"
   type "string"
-  description "Comma-separated list of Tags' Namespace:Keys to audit. For example: \"ec2:project_code\" or \"bu:id\""
-  min_length 3
-  allowed_pattern '^([a-zA-Z0-9-_]+:[a-zA-Z0-9-_]+,*)+$'
+  description "Comma-separated list of Tags' Namespace:Keys to audit. For example: \"ec2:project_code\" or \"bu:id\"."
+  # allow namespace:key or nothing
+  allowed_pattern '^([a-zA-Z0-9-_]+:[a-zA-Z0-9-_]+,*|)+$'
+end
+
+parameter "param_advanced_tag_key" do
+  category "User Inputs"
+  label "Tags' Namespace:Keys Advanced List."
+  type "string"
+  description "A JSON string or publc HTTP URL to json file."
+  #allow http, {*} or nothing.
+  allowed_pattern '^(http|\{.*\}|)'
 end
 
 parameter "param_email" do
@@ -89,14 +98,14 @@ end
 # DEFINITIONS (i.e. RCL) #
 ##########################
 # Go through and find improperly tagged instances
-define launch_tag_checker($param_tag_key,$param_email,$param_run_once) return $bad_instances do
-  #call sys_log.set_task_target(@@deployment)
-  #call sys_log.summary("Launch")
-
+define launch_tag_checker($param_tag_key,$param_advanced_tag_key,$param_email,$param_run_once) return $bad_instances do
   # add deployment tags for the parameters and then tell tag_checker to go
-  rs_cm.tags.multi_add(resource_hrefs: [@@deployment.href], tags: [join(["tagchecker:tag_key=",$param_tag_key])])
-  rs_cm.tags.multi_add(resource_hrefs: [@@deployment.href], tags: [join(["tagchecker:check_frequency=",$parameter_check_frequency])])
-  rs_cm.tags.multi_add(resource_hrefs: [@@deployment.href], tags: [join(["tagchecker:cloud_scope=",$parameter_cloud])])
+  if $param_tag_key != ""
+    rs_cm.tags.multi_add(resource_hrefs: [@@deployment.href], tags: [join(["tagchecker:tag_key=",$param_tag_key])])
+  end
+  if $param_advanced_tag_key != ""
+    rs_cm.tags.multi_add(resource_hrefs: [@@deployment.href], tags: [join(["tagchecker:advanced_tag_key=",$param_advanced_tag_key])])
+  end
 
   call tag_checker() retrieve $bad_instances
 
@@ -114,22 +123,36 @@ end
 define tag_checker() return $bad_instances do
   # Get the stored parameters from the deployment tags
   $tag_key = ""
-  $check_frequency = 5
-  $cloud_scope = ""
+  $advanced_tag_keys = {}
+  $advanced_tags = {}
 
   # retrieve tags on current deployment
   call get_tags_for_resource(@@deployment) retrieve $tags_on_deployment
+
   $href_tag = map $current_tag in $tags_on_deployment return $tag do
     if $current_tag =~ "(tagchecker:tag_key)"
       $tag_key = last(split($current_tag,"="))
-    elsif $current_tag =~ "(tagchecker:check_frequency)"
-      $check_frequency = to_n(last(split($current_tag,"=")))
-    elsif $current_tag =~ "(tagchecker:cloud_scope)"
-      $cloud_scope = last(split($current_tag,"="))
+    elsif $current_tag =~ "(tagchecker:advanced_tag_key)"
+      $advanced_tag_key_value =  last(split($current_tag,"="))
+      if $advanced_tag_key_value =~ /^http/
+        $json = http_get({ url: $advanced_tag_key_value})
+        $advanced_tags = $json
+        $advanced_tag_keys = keys($advanced_tags)
+      else
+        $advanced_tags = from_json($advanced_tag_key_value)
+        $advanced_tag_keys = keys($advanced_tags)
+      end
     end
   end
 
-  concurrent return $operational_instances_hrefs, $provisioned_instances_hrefs, $running_instances_hrefs do  
+  # Loop through the tag info array and find any entries which DO NOT reference the tag(s) in question.
+  $param_tag_keys_array = split($tag_key, ",")  # make the parameter list an array so I can search stuff
+  # add advanced_tag_keys to param_tag_keys_array array
+  foreach $key in $advanced_tag_keys do
+    $param_tag_keys_array << $key
+  end
+
+  concurrent return $operational_instances_hrefs, $provisioned_instances_hrefs, $running_instances_hrefs do
     sub do
       @instances_operational = rs_cm.instances.get(filter: ["state==operational"])
       $operational_instances_hrefs = to_object(@instances_operational)["hrefs"]
@@ -150,29 +173,19 @@ define tag_checker() return $bad_instances do
   foreach $hrefs in $instances_hrefs do
     $instances_tags = rs_cm.tags.by_resource(resource_hrefs: [$hrefs])
     $tag_info_array = $instances_tags[0]
-    # Loop through the tag info array and find any entries which DO NOT reference the tag(s) in question.
-    $param_tag_keys_array = split($tag_key, ",")  # make the parameter list an array so I can search stuff
-    foreach $tag_info_hash in $tag_info_array do
-      # Create an array of the tags' namespace:key parts
-      $tag_entry_ns_key_array=[]
-      foreach $tag_entry in $tag_info_hash["tags"] do
-        $tag_entry_ns_key_array << split($tag_entry["name"],"=")[0]
-      end
 
-      # See if the desired keys are in the found tags and if not take note of the improperly tagged instances
-      if logic_not(contains?($tag_entry_ns_key_array, $param_tag_keys_array))
-        foreach $resource in $tag_info_hash["links"] do
-          $$bad_instances_array << $resource["href"]
-        end
-      end
-    end
+    # check for missing tags
+    call check_tag_key($tag_info_array,$param_tag_keys_array)
+    # check for incorrect tag values
+    call check_tag_value($tag_info_array, $advanced_tags)
+
   end
 
   $bad_instances = to_s($$bad_instances_array)
 
   # Send an alert email if there is at least one improperly tagged instance
   if logic_not(empty?($$bad_instances_array))
-    call send_tags_alert_email($tag_key,$param_email)
+    call send_tags_alert_email(join($param_tag_keys_array,','),$param_email)
   end
 end
 
@@ -388,4 +401,72 @@ define get_server_access_link($instance_href) return $server_access_link_root do
   $data = split($instance_href, "/")
   $cloud_id = $data[3]
   $server_access_link_root = "https://my.rightscale.com/acct/" + $$account_number + "/clouds/" + $cloud_id + "/instances/" + $legacy_id
+end
+
+# check the list of tags from instances if the key match
+#
+define check_tag_key($tag_info_array,$param_tag_keys_array) do
+  foreach $tag_info_hash in $tag_info_array do
+    # Create an array of the tags' namespace:key parts
+    $tag_entry_ns_key_array=[]
+    foreach $tag_entry in $tag_info_hash["tags"] do
+      $tag_entry_ns_key_array << split($tag_entry["name"],"=")[0]
+    end
+
+    # See if the desired keys are in the found tags and if not take note of the improperly tagged instances
+    if logic_not(contains?($tag_entry_ns_key_array, $param_tag_keys_array))
+      foreach $resource in $tag_info_hash["links"] do
+        $$bad_instances_array << $resource["href"]
+      end
+    end
+  end
+end
+
+# check list of resource tags with advanced validation
+define check_tag_value($tag_info_array,$advanced_tags) do
+  foreach $tag_info_hash in $tag_info_array do
+    # Create an array of the tags' namespace:key parts
+    $tag_entry_ns_key_array=[]
+    foreach $tag_entry in $tag_info_hash["tags"] do
+      $tag_entry_ns_key_array << split($tag_entry["name"],"=")[0]
+      $tag_value = split($tag_entry["name"],"=")[1]
+      foreach $tag_key in $tag_entry_ns_key_array do
+        # find instance without values in validation array
+        if $advanced_tags[$tag_key] && $advanced_tags[$tag_key]['validation-type']=='array'
+          if !contains?($advanced_tags[$tag_key]['validation'],[$tag_value])
+              foreach $resource in $tag_info_hash["links"] do
+                $$bad_instances_array << $resource["href"]
+              end
+          end
+        end
+        # find instance without value in validation string
+        if $advanced_tags[$tag_key] && $advanced_tags[$tag_key]['validation-type']=='string'
+          if $tag_value != $advanced_tags[$tag_key]['validation']
+              foreach $resource in $tag_info_hash["links"] do
+                $$bad_instances_array << $resource["href"]
+              end
+          end
+        end
+        # find instance without values in validation regex
+        if $advanced_tags[$tag_key] && $advanced_tags[$tag_key]['validation-type']=='regex'
+          if $tag_value !~ $advanced_tags[$tag_key]['validation']
+              foreach $resource in $tag_info_hash["links"] do
+                $$bad_instances_array << $resource["href"]
+              end
+          end
+        end
+      end
+    end
+  end
+end
+
+define sys_log($subject, $detail) do
+  rs_cm.audit_entries.create(
+    notify: "None",
+    audit_entry: {
+      auditee_href: @@deployment,
+      summary: $subject,
+      detail: $detail
+    }
+  )
 end
