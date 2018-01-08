@@ -7,7 +7,7 @@ servers or instances are missing the tag.
 
 **Using Advanced Tags**
 
-You can create a custom tag policy by using a JSON object that contains the tags, keys and validation value(s).  There are three options; string, regex and array.  You may include JSON in the field *Tags' Namespace:Keys Advanced List.* or provide a public url that contains your JSON.  The first key is the tag to match, each key has two other keys: validation-type is either array, string or regex.  validation includes the values the tag must contain.  If the tags and values are not on the server than the server will be reported in the email at the end of the cloudapp exectuion.  See example below.  
+You can create a custom tag policy by using a JSON object that contains the tags, keys and validation value(s).  There are three options; string, regex and array.  You may include JSON in the field *Tags' Namespace:Keys Advanced List.* or provide a public url that contains your JSON.  The first key is the tag to match, each key has two other keys: validation-type is either array, string or regex.  validation includes the values the tag must contain.  If the tags and values are not on the server than the server will be reported in the email at the end of the cloudapp exectuion.  You can also create missing tags by setting the default-value key of the tag.  See example below.  
 
 Example JSON:
 ```json
@@ -22,7 +22,8 @@ Example JSON:
 	},
 	"rs_id: user": {
 		"validation-type": "regex",
-		"validation": "^sp"
+		"validation": "^sp",
+		"default-value":"none"
 	}
 }
 ```
