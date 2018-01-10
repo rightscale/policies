@@ -136,11 +136,9 @@ define tag_checker() return $bad_instances do
       $advanced_tag_key_value =  last(split($current_tag,"="))
       if $advanced_tag_key_value =~ /^http/
         $json = http_get({ url: $advanced_tag_key_value})
-        $advanced_tags = $json
-        $advanced_tag_keys = keys($advanced_tags)
+        $advanced_tags = from_json($json['body'])
       else
         $advanced_tags = from_json($advanced_tag_key_value)
-        $advanced_tag_keys = keys($advanced_tags)
       end
     end
   end
@@ -148,9 +146,15 @@ define tag_checker() return $bad_instances do
   # Loop through the tag info array and find any entries which DO NOT reference the tag(s) in question.
   $param_tag_keys_array = split($tag_key, ",")  # make the parameter list an array so I can search stuff
   # add advanced_tag_keys to param_tag_keys_array array
-  foreach $key in $advanced_tag_keys do
+  foreach $key in keys($advanced_tag_keys) do
     $param_tag_keys_array << $key
   end
+
+  # for testing.  change the deployment_href to one that includes a few servers
+  # to test with.  uncomment code and comment the concurrent block below it.
+  # $deployment_href =  '/api/deployments/378563001'
+  # @instances = rs_cm.instances.get(filter: ["state==operational","deployment_href=="+$deployment_href])
+  # $instances_hrefs = to_object(@instances)["hrefs"]
 
   concurrent return $operational_instances_hrefs, $provisioned_instances_hrefs, $running_instances_hrefs do
     sub do
@@ -170,15 +174,19 @@ define tag_checker() return $bad_instances do
   $instances_hrefs = $operational_instances_hrefs + $provisioned_instances_hrefs + $running_instances_hrefs
 
   $$bad_instances_array=[]
+  $$add_tags_hash = {}
   foreach $hrefs in $instances_hrefs do
     $instances_tags = rs_cm.tags.by_resource(resource_hrefs: [$hrefs])
     $tag_info_array = $instances_tags[0]
 
     # check for missing tags
-    call check_tag_key($tag_info_array,$param_tag_keys_array)
+    call check_tag_key($tag_info_array,$param_tag_keys_array,$advanced_tags)
     # check for incorrect tag values
     call check_tag_value($tag_info_array, $advanced_tags)
-
+  end
+  # add missing tag with default value from $advanced_tags
+  if any?(keys($$add_tags_hash)) && any?(keys($advanced_tags))
+   call add_tag_to_resources($advanced_tags)
   end
 
   $bad_instances = to_s($$bad_instances_array)
@@ -405,12 +413,36 @@ end
 
 # check the list of tags from instances if the key match
 #
-define check_tag_key($tag_info_array,$param_tag_keys_array) do
+define check_tag_key($tag_info_array,$param_tag_keys_array,$advanced_tags) do
+  $resource_array=[]
+  $advanced_tags_keys = keys($advanced_tags)
+  $default_value_keys = []
+  foreach $key in $advanced_tags_keys do
+    if $advanced_tags[$key]['default-value']
+      $default_value_keys << $key
+    end
+  end
   foreach $tag_info_hash in $tag_info_array do
     # Create an array of the tags' namespace:key parts
     $tag_entry_ns_key_array=[]
     foreach $tag_entry in $tag_info_hash["tags"] do
       $tag_entry_ns_key_array << split($tag_entry["name"],"=")[0]
+    end
+
+    foreach $key in $default_value_keys do
+      if !contains?($tag_entry_ns_key_array, [$key])
+
+        # get previous items in array, so we can include them all in
+        # $$add_tags_hash[$tag_key] later
+        if $$add_tags_hash[$key]
+          $$add_tags_hash[$key]  = unique($$add_tags_hash[$key])
+        end
+        foreach $item in $$add_tags_hash[$key] do
+          $resource_array << $item
+        end
+        $resource_array << $tag_info_hash['links'][0]['href']
+        $$add_tags_hash[$key] = $resource_array
+      end
     end
 
     # See if the desired keys are in the found tags and if not take note of the improperly tagged instances
@@ -454,6 +486,34 @@ define check_tag_value($tag_info_array,$advanced_tags) do
                 $$bad_instances_array << $resource["href"]
               end
           end
+        end
+      end
+    end
+  end
+end
+
+# adds tag with default-value from $advanced_tags json
+define add_tag_to_resources($advanced_tags) do
+  $clouds = {}
+  # get list of resource and and missing tags.
+  foreach $key in keys($$add_tags_hash) do
+    if $advanced_tags[$key] && $advanced_tags[$key]['default-value']
+      foreach $resource in $$add_tags_hash[$key] do
+        # make a map of recourses by cloud to add tags
+        if $resource
+          $cloud_id = split($resource,'/')[3]
+          $resource_array=[]
+          foreach $item in $clouds[$cloud_id] do
+            $resource_array << $item
+          end
+          $resource_array << $resource
+          $clouds[$cloud_id] = $resource_array
+        end
+      end
+      # tag each resource by cloud
+      foreach $cloud in keys($clouds) do
+        if any?($clouds[$cloud])
+          rs_cm.tags.multi_add(resource_hrefs: $clouds[$cloud], tags: [join([$key,"=",$advanced_tags[$key]['default-value']])])
         end
       end
     end
