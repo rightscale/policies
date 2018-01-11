@@ -54,8 +54,7 @@ parameter "param_email" do
   category "Contact"
   label "Email addresses (separate with commas)"
   type "string"
-  allowed_pattern '^([a-zA-Z0-9-_.]+[@]+[a-zA-Z0-9-_.]+[.]+[a-zA-Z0-9-_]+,*)+$'
-  min_length 6
+  allowed_pattern '^([a-zA-Z0-9-_.]+[@]+[a-zA-Z0-9-_.]+[.]+[a-zA-Z0-9-_]+,*|)+$'
 end
 
 parameter "param_run_once" do
@@ -192,6 +191,10 @@ define tag_checker() return $bad_instances do
   end
 
   $bad_instances = to_s(unique($$bad_instances_array))
+
+  # get the users email and add to param_email
+  $user_email = tag_value(@@deployment, 'selfservice:launched_by')
+  $param_email = $user_email +','+$param_email
 
   # Send an alert email if there is at least one improperly tagged instance
   if logic_not(empty?($$bad_instances_array))
