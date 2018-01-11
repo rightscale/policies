@@ -175,6 +175,7 @@ define tag_checker() return $bad_instances do
 
   $$bad_instances_array=[]
   $$add_tags_hash = {}
+  $$add_prefix_value = {}
   foreach $hrefs in $instances_hrefs do
     $instances_tags = rs_cm.tags.by_resource(resource_hrefs: [$hrefs])
     $tag_info_array = $instances_tags[0]
@@ -185,11 +186,12 @@ define tag_checker() return $bad_instances do
     call check_tag_value($tag_info_array, $advanced_tags)
   end
   # add missing tag with default value from $advanced_tags
-  if any?(keys($$add_tags_hash)) && any?(keys($advanced_tags))
+  if any?(keys($advanced_tags))
    call add_tag_to_resources($advanced_tags)
+   call update_tag_prefix_value($advanced_tags)
   end
 
-  $bad_instances = to_s($$bad_instances_array)
+  $bad_instances = to_s(unique($$bad_instances_array))
 
   # Send an alert email if there is at least one improperly tagged instance
   if logic_not(empty?($$bad_instances_array))
@@ -303,7 +305,7 @@ define send_tags_alert_email($tags,$to) do
   </html>"
 
   $$list_of_instances=""
-  foreach $instance in $$bad_instances_array do
+  foreach $instance in unique($$bad_instances_array) do
     $$instance_error = 'false'
     @server = rs_cm.servers.empty()
 
@@ -467,6 +469,7 @@ define check_tag_value($tag_info_array,$advanced_tags) do
         if $advanced_tags[$tag_key] && $advanced_tags[$tag_key]['validation-type']=='array'
           if !contains?($advanced_tags[$tag_key]['validation'],[$tag_value])
               foreach $resource in $tag_info_hash["links"] do
+                call add_tag_prefix_value($advanced_tags,$tag_key,$tag_entry,$resource)
                 $$bad_instances_array << $resource["href"]
               end
           end
@@ -475,6 +478,7 @@ define check_tag_value($tag_info_array,$advanced_tags) do
         if $advanced_tags[$tag_key] && $advanced_tags[$tag_key]['validation-type']=='string'
           if $tag_value != $advanced_tags[$tag_key]['validation']
               foreach $resource in $tag_info_hash["links"] do
+                call add_tag_prefix_value($advanced_tags,$tag_key,$tag_entry,$resource)
                 $$bad_instances_array << $resource["href"]
               end
           end
@@ -483,6 +487,7 @@ define check_tag_value($tag_info_array,$advanced_tags) do
         if $advanced_tags[$tag_key] && $advanced_tags[$tag_key]['validation-type']=='regex'
           if $tag_value !~ $advanced_tags[$tag_key]['validation']
               foreach $resource in $tag_info_hash["links"] do
+                call add_tag_prefix_value($advanced_tags,$tag_key,$tag_entry,$resource)
                 $$bad_instances_array << $resource["href"]
               end
           end
@@ -515,6 +520,34 @@ define add_tag_to_resources($advanced_tags) do
         if any?($clouds[$cloud])
           rs_cm.tags.multi_add(resource_hrefs: $clouds[$cloud], tags: [join([$key,"=",$advanced_tags[$key]['default-value']])])
         end
+      end
+    end
+  end
+end
+
+# update hash to store tag key, resource and tag value
+# to update the tag later with prefix-value
+define add_tag_prefix_value($advanced_tags,$tag_key,$tag_entry,$resource) do
+  if $advanced_tags[$tag_key]['prefix-value']  && $tag_key == split($tag_entry["name"],"=")[0]
+    $array = []
+    foreach $item in $$add_prefix_value[$tag_key] do
+      $array << $item
+    end
+    $array << { resource_href: $resource['href'], tag_value: $tag_value }
+    $$add_prefix_value[$tag_key]=$array
+  end
+end
+
+# add prefix value to tags with incorrect value
+define update_tag_prefix_value($advanced_tags) do
+  # get list of resource and and missing tags.
+  foreach $key in keys($$add_prefix_value) do
+    foreach $item in $$add_prefix_value[$key] do
+      $new_value = $advanced_tags[$key]['prefix-value'] + $item['tag_value']
+      $resource = $item['resource_href']
+      $tag = join([$key,"=",$new_value])
+      if !include?($item['tag_value'],$advanced_tags[$key]['prefix-value'])
+        rs_cm.tags.multi_add(resource_hrefs: [$resource], tags: [$tag])
       end
     end
   end
