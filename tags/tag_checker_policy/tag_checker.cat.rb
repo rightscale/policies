@@ -203,8 +203,9 @@ define tag_checker() return $bad_instances do
   end
 
   if $delete_days!=0
-    call add_deleted_date_tag($delete_days)
+    call add_delete_date_tag($delete_days)
   end
+
 
   $bad_instances = to_s(unique($$bad_instances_array))
 
@@ -574,7 +575,7 @@ end
 
 # add a rs_policy:delete_date tag to invalid instances
 # only add the tag if it doesn't exist.
-define add_deleted_date_tag($delete_days) do
+define add_delete_date_tag($delete_days) do
   $clouds = {}
   $delete_date = to_d(to_n(strftime(now(),'%s')) + (86400 * 7))
   $formated_delete_date = strftime($delete_date,'%F')
@@ -592,12 +593,27 @@ define add_deleted_date_tag($delete_days) do
       $resource_array << $resource
       $clouds[$cloud_id] = $resource_array
     end
+  end
+  # add rs_policy:delete_date tag to each resource by cloud
+  foreach $cloud in keys($clouds) do
+    if any?($clouds[$cloud])
+      rs_cm.tags.multi_add(resource_hrefs: $clouds[$cloud], tags: [join(["rs_policy:delete_date=",$formated_delete_date])])
+    end
+  end
+end
 
-    # tag each resource by cloud
-    foreach $cloud in keys($clouds) do
-      if any?($clouds[$cloud])
-        rs_cm.tags.multi_add(resource_hrefs: $clouds[$cloud], tags: [join(["rs_policy:delete_date=",$formated_delete_date])])
-      end
+# remove rs_policy:delete_date tag from valid resources
+# this definition should be called last after the $$bad_instances_array
+# is  complete
+define remove_delete_date_tag() do
+  $resources = rs_cm.tags.by_tag(tags: ["rs_policy:delete_date=*"],
+    resource_type: 'instances')
+  $resources = first(first($resources))["links"]
+  foreach $resource in $resources do
+    if !contains?($bad_instances_array,[$resource['href']])
+      	@resource = rs_cm.instances.get(href: $resource['href'])
+        rs_cm.tags.multi_delete(resource_hrefs: [@resource.href],
+        tags: ["rs_policy:delete_date="+tag_value(@resource,'rs_policy:delete_date')])
     end
   end
 end
