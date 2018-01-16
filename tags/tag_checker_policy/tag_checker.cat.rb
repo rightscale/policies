@@ -53,7 +53,9 @@ end
 parameter "param_delete_days" do
   category "User Inputs"
   label "# of days from now for delete_date tag value"
-  type "number"
+  type "string"
+  #allows any number between 1-99 or blank
+  allowed_pattern '(^[1-9][0-9]*$|)'
 end
 
 parameter "param_email" do
@@ -163,7 +165,7 @@ define tag_checker() return $bad_instances do
 
   # for testing.  change the deployment_href to one that includes a few servers
   # to test with.  uncomment code and comment the concurrent block below it.
-  $deployment_href =  '/api/deployments/378563001'
+  $deployment_href =  '/api/deployments/378563001' # replace with your deployment here
   @instances = rs_cm.instances.get(filter: ["state==operational","deployment_href=="+$deployment_href])
   $instances_hrefs = to_object(@instances)["hrefs"]
 
@@ -202,7 +204,7 @@ define tag_checker() return $bad_instances do
    call update_tag_prefix_value($advanced_tags)
   end
 
-  if $delete_days!=0
+  if $delete_days > 0
     call add_delete_date_tag($delete_days)
   end
 
@@ -577,10 +579,10 @@ end
 # only add the tag if it doesn't exist.
 define add_delete_date_tag($delete_days) do
   $clouds = {}
-  $delete_date = to_d(to_n(strftime(now(),'%s')) + (86400 * 7))
+  $delete_date = to_d(to_n(strftime(now(),'%s')) + (86400 * to_n($delete_days)))
   $formated_delete_date = strftime($delete_date,'%F')
   # get list of resource and and missing tags.
-  foreach $resource in $$bad_instances_array do
+  foreach $resource in unique($$bad_instances_array) do
     # make a map of resources by cloud to add tags
     # skip if rs_policy:delete_date tag exists.  we don't want to update the tag
     @resource = rs_cm.get(href: $resource)
@@ -610,7 +612,7 @@ define remove_delete_date_tag() do
     resource_type: 'instances')
   $resources = first(first($resources))["links"]
   foreach $resource in $resources do
-    if !contains?($bad_instances_array,[$resource['href']])
+    if !contains?(unique($$bad_instances_array),[$resource['href']])
       	@resource = rs_cm.instances.get(href: $resource['href'])
         rs_cm.tags.multi_delete(resource_hrefs: [@resource.href],
         tags: ["rs_policy:delete_date="+tag_value(@resource,'rs_policy:delete_date')])
