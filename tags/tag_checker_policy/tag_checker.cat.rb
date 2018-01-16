@@ -320,7 +320,11 @@ define send_tags_alert_email($tags,$to) do
     else
       # Get instance name
       if $server_object["details"][0]["state"] == 'provisioned'
-        $instance_name = $server_object["details"][0]["resource_uid"]
+        # try for the instance name first, then get resource_uid
+        $instance_name = $server_object["details"][0]["name"]
+        if !$instance_name
+          $instance_name = $server_object["details"][0]["resource_uid"]
+        end
       else
         $instance_name = $server_object["details"][0]["name"]
       end
