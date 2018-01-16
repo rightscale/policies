@@ -165,26 +165,26 @@ define tag_checker() return $bad_instances do
 
   # for testing.  change the deployment_href to one that includes a few servers
   # to test with.  uncomment code and comment the concurrent block below it.
-  $deployment_href =  '/api/deployments/378563001' # replace with your deployment here
-  @instances = rs_cm.instances.get(filter: ["state==operational","deployment_href=="+$deployment_href])
-  $instances_hrefs = to_object(@instances)["hrefs"]
+  # $deployment_href =  '/api/deployments/378563001' # replace with your deployment here
+  # @instances = rs_cm.instances.get(filter: ["state==operational","deployment_href=="+$deployment_href])
+  # $instances_hrefs = to_object(@instances)["hrefs"]
 
-  # concurrent return $operational_instances_hrefs, $provisioned_instances_hrefs, $running_instances_hrefs do
-  #   sub do
-  #     @instances_operational = rs_cm.instances.get(filter: ["state==operational"])
-  #     $operational_instances_hrefs = to_object(@instances_operational)["hrefs"]
-  #   end
-  #   sub do
-  #     @instances_provisioned = rs_cm.instances.get(filter: ["state==provisioned"])
-  #     $provisioned_instances_hrefs = to_object(@instances_provisioned)["hrefs"]
-  #   end
-  #   sub do
-  #     @instances_running = rs_cm.instances.get(filter: ["state==running"])
-  #     $running_instances_hrefs = to_object(@instances_running)["hrefs"]
-  #   end
-  # end
-  #
-  # $instances_hrefs = $operational_instances_hrefs + $provisioned_instances_hrefs + $running_instances_hrefs
+  concurrent return $operational_instances_hrefs, $provisioned_instances_hrefs, $running_instances_hrefs do
+    sub do
+      @instances_operational = rs_cm.instances.get(filter: ["state==operational"])
+      $operational_instances_hrefs = to_object(@instances_operational)["hrefs"]
+    end
+    sub do
+      @instances_provisioned = rs_cm.instances.get(filter: ["state==provisioned"])
+      $provisioned_instances_hrefs = to_object(@instances_provisioned)["hrefs"]
+    end
+    sub do
+      @instances_running = rs_cm.instances.get(filter: ["state==running"])
+      $running_instances_hrefs = to_object(@instances_running)["hrefs"]
+    end
+  end
+
+  $instances_hrefs = $operational_instances_hrefs + $provisioned_instances_hrefs + $running_instances_hrefs
 
   $$bad_instances_array=[]
   $$add_tags_hash = {}
