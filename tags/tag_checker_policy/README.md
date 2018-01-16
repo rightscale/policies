@@ -33,7 +33,7 @@ Example JSON:
 
 **Adding Delete Date Tags**
 
-You may add a new tag (rs_policy:delete_date) to all instances that do not meet the tag policy.   Use the *# of days from now for delete_date tag value* field to set the rs_policy:delete_date tag value with the date the number of days from the run date.  The resources are only tagged, no other action is taken.
+You may add a new tag (rs_policy:delete_date) to all instances that do not meet the tag policy.   Use the **# of days from now for delete_date tag value** field to set the rs_policy:delete_date tag value with the date the number of days from the run date.  The resources are only tagged, no other action is taken.
 
 **Scheduling when the policy runs**
 
