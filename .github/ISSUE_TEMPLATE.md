@@ -4,7 +4,7 @@
 ### Issue Type
 [Bug -or- Feature Request -or- New Policy Request]
 
-### Policy version
+### Policy version (Bug -or Feature Request Only)
 [Version of Policy in use, this can be found in the long_description]
 
 ### Use Case (Feature Request -or- New Policy Request Only)
