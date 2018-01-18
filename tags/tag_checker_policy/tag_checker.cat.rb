@@ -27,7 +27,8 @@ name 'Tag Checker'
 rs_ca_ver 20161221
 short_description "![Tag](https://s3.amazonaws.com/rs-pft/cat-logos/tag.png)\n
 Check for a tag and report which instances are missing it."
-long_description "Version: 1.4"
+long_description "Version: 1.5"
+import "mailer"
 
 ##################
 # User inputs    #
@@ -234,7 +235,7 @@ define send_tags_alert_email($tags,$to) do
   call find_account_name() retrieve $account_name
   call find_account_number() retrieve $$account_number
   call find_shard() retrieve $$shard
-
+  $endpoint = "http://policies.services.rightscale.com"
   # Build email
   $subject = "Tag Checker Policy: "
   $from = "policy-cat@services.rightscale.com"
@@ -246,9 +247,9 @@ define send_tags_alert_email($tags,$to) do
     \<\!DOCTYPE html PUBLIC \"-\/\/W3C\/\/DTD XHTML 1.0 Transitional\/\/EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\"\>
     <html xmlns=\"http:\/\/www.w3.org\/1999\/xhtml\">
     <head>
-      <meta http-equiv=%22Content-Type%22 content=%22text/html; charset=UTF-8%22 />
-      <a href=%22//www.rightscale.com%22>
-      <img src=%22https://assets.rightscale.com/6d1cee0ec0ca7140cd8701ef7e7dceb18a91ba20/web/images/logo.png%22 alt=%22RightScale Logo%22 width=%22200px%22 /></a>
+      <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\" />
+      <a href=\"http://www.rightscale.com\">
+      <img src=\"https://assets.rightscale.com/6d1cee0ec0ca7140cd8701ef7e7dceb18a91ba20/web/images/logo.png\" alt=\"RightScale Logo\" width=\"200px\" /></a>
     <style></style>
     </head>
     <body>
@@ -305,7 +306,7 @@ define send_tags_alert_email($tags,$to) do
   </html>"
 
   $columns = ["Instance Name", "State", "Link"]
-  call create_csv_with_columns($columns) retrieve $filename
+  call mailer.create_csv_with_columns($endpoint,$columns) retrieve $filename
   $$csv_filename = $filename
 
   $$list_of_instances=""
@@ -353,61 +354,18 @@ define send_tags_alert_email($tags,$to) do
       end
 
       # Create the instance table
-      call update_csv_with_rows($filename, [$instance_name, $instance_state, $server_access_link_root]) retrieve $filename
+      call mailer.update_csv_with_rows($endpoint, $filename, [$instance_name, $instance_state, $server_access_link_root]) retrieve $filename
       $instance_table = "<tr>" + $table_start + $instance_name + $table_end + $table_start + $instance_state + $table_end + $table_start + $server_access_link_root + $table_end + "</tr>"
       insert($$list_of_instances, -1, $instance_table)
     end
   end
 
   $email_body = $header + $$list_of_instances + $footer
-  call send_html_email($to, $from, $subject, $email_body, $filename) retrieve $response
+  call mailer.send_html_email($endpoint, $to, $from, $subject, $email_body, $filename) retrieve $response
 
   if $response['code'] != 200
     raise 'Failed to send email report: ' + to_s($response)
   end
-end
-
-define create_csv_with_columns($columns) return $filename do
-  task_label("creating csv file")
-  $endpoint = 'http://policies.services.rightscale.com/api/csv'
-  $response = http_post(
-    url: $endpoint,
-    headers: {"X-Api-Version": "1.0"},
-    body: { "data": [$columns] }
-  )
-  $filename = $response["body"]["file"]
-end
-
-define update_csv_with_rows($filename,$rows) return $filename do
-  task_label("updating csv for file:" + $filename)
-  $endpoint = "http://policies.services.rightscale.com/api/csv/" + $filename
-  $response = http_put(
-    url: $endpoint,
-    headers: {"X-Api-Version": "1.0"},
-    body: { "data": [$rows] }
-  )
-  $filename = $response["body"]["file"]
-end
-
-define send_html_email($to, $from, $subject, $html,$filename) return $response do
-  task_label("Sending email")
-  $endpoint = 'http://policies.services.rightscale.com/api/mail'
-
-  # escape ampersands used in html encoding
-  $html = gsub($html, "&", "%26")
-
-  $response = http_post(
-    url: $endpoint,
-    headers: {"content-type": "application/x-www-form-urlencoded"},
-    body: {
-    "to": $to,
-    "from": $from,
-    "subject": $subject,
-    "body": $html,
-    "attachment": $filename,
-    "encoding": "html"
-    }
-  )
 end
 
 define set_instance_error() do
