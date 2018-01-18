@@ -1,5 +1,25 @@
 # Change Log
 
+## [Week-of-01-15-2018](https://github.com/rightscale/policies/tree/Week-of-01-15-2018) (2018-01-18)
+[Full Changelog](https://github.com/rightscale/policies/compare/Week-of-12-07-2017...Week-of-01-15-2018)
+
+**Implemented enhancements:**
+
+- Tag Checker Policy: Allow for multiple default tag values across multiple tag keys [\#45](https://github.com/rightscale/policies/issues/45)
+- Tag Checker Policy: Adjust Tag Key if Tag Value fails validation [\#44](https://github.com/rightscale/policies/issues/44)
+- Tag Checker Policy: Add Tag Value Validation [\#42](https://github.com/rightscale/policies/issues/42)
+
+**Fixed bugs:**
+
+- Tag Checker Policy: Resource report isn't showing Name [\#58](https://github.com/rightscale/policies/issues/58)
+
+**Merged pull requests:**
+
+- Tag Checker Policy: use resource name in report if it's available [\#57](https://github.com/rightscale/policies/pull/57) ([cdwilhelm](https://github.com/cdwilhelm))
+- Tag Checker - Allow the user to provide a prefix value for invalid tags values [\#55](https://github.com/rightscale/policies/pull/55) ([cdwilhelm](https://github.com/cdwilhelm))
+- Tag Checker - update advanced tags to create missing tag [\#54](https://github.com/rightscale/policies/pull/54) ([cdwilhelm](https://github.com/cdwilhelm))
+- Tag Checker - adding advanced tag matching [\#51](https://github.com/rightscale/policies/pull/51) ([cdwilhelm](https://github.com/cdwilhelm))
+
 ## [Week-of-12-07-2017](https://github.com/rightscale/policies/tree/Week-of-12-07-2017) (2017-12-07)
 [Full Changelog](https://github.com/rightscale/policies/compare/Week-of-11-20-2017...Week-of-12-07-2017)
 
@@ -12,7 +32,7 @@
 
 **Fixed bugs:**
 
-- Policy tag checker runs very long and abort when there are many resources and tags [\#31](https://github.com/rightscale/policies/issues/31)
+- Tag Checker Policy: Policy tag checker runs very long and abort when there are many resources and tags [\#31](https://github.com/rightscale/policies/issues/31)
 
 **Merged pull requests:**
 
@@ -22,7 +42,7 @@
 ## [Week-of-11-13-2017](https://github.com/rightscale/policies/tree/Week-of-11-13-2017) (2017-11-15)
 **Fixed bugs:**
 
-- Special character &amp in Account name aborts e-mail content [\#28](https://github.com/rightscale/policies/issues/28)
+- Long Running Instances Policy: Special character &amp in Account name aborts e-mail content [\#28](https://github.com/rightscale/policies/issues/28)
 - Unattached Volumes in ASM [\#9](https://github.com/rightscale/policies/issues/9)
 
 **Merged pull requests:**
