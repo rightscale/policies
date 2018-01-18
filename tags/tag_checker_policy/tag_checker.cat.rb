@@ -304,8 +304,10 @@ define send_tags_alert_email($tags,$to) do
 
   $columns = ["Instance Name", "State", "Link"]
   call create_csv_with_columns($columns) retrieve $filename
+  $$csv_filename = $filename
   $$list_of_instances=""
   foreach $instance in $$bad_instances_array do
+    task_label("Checking tags on " + $instance)
     $$instance_error = 'false'
     @server = rs_cm.servers.empty()
 
@@ -361,6 +363,7 @@ define send_tags_alert_email($tags,$to) do
 end
 
 define create_csv_with_columns($columns) return $filename do
+  task_label("creating csv file")
   $endpoint = 'http://policies.services.rightscale.com/api/csv'
   $response = http_post(
     url: $endpoint,
@@ -371,6 +374,7 @@ define create_csv_with_columns($columns) return $filename do
 end
 
 define update_csv_with_rows($filename,$rows) return $filename do
+  task_label("updating csv for file:" + $filename)
   $endpoint = "http://policies.services.rightscale.com/api/csv/" + $filename
   $response = http_put(
     url: $endpoint,
@@ -381,6 +385,7 @@ define update_csv_with_rows($filename,$rows) return $filename do
 end
 
 define send_html_email($to, $from, $subject, $html,$filename) return $response do
+  task_label("Sending email")
   $endpoint = 'http://policies.services.rightscale.com/api/mail'
 
   # escape ampersands used in html encoding
