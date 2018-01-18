@@ -154,9 +154,12 @@ define tag_checker() return $bad_instances do
   # to test with.  uncomment code and comment the concurrent block below it.
   # $deployment_href =  '/api/deployments/378563001'
   # @instances = rs_cm.instances.get(filter: ["state==operational","deployment_href=="+$deployment_href])
-  # $instances_hrefs = to_object(@instances)["hrefs"]
+  # $operational_instances_hrefs = to_object(@instances)["hrefs"]
+  # @volumes = rs_cm.volumes.get(filter: ["deployment_href=="+$deployment_href])
+  # $volume_hrefs = to_object(@volumes)["hrefs"]
+  # $instances_hrefs = $operational_instances_hrefs + $volume_hrefs
 
-  concurrent return $operational_instances_hrefs, $provisioned_instances_hrefs, $running_instances_hrefs do
+  concurrent return $operational_instances_hrefs, $provisioned_instances_hrefs, $running_instances_hrefs, $volume_hrefs do
     sub do
       @instances_operational = rs_cm.instances.get(filter: ["state==operational"])
       $operational_instances_hrefs = to_object(@instances_operational)["hrefs"]
@@ -169,9 +172,13 @@ define tag_checker() return $bad_instances do
       @instances_running = rs_cm.instances.get(filter: ["state==running"])
       $running_instances_hrefs = to_object(@instances_running)["hrefs"]
     end
+    sub do
+      @volumes = rs_cm.volumes.get()
+      $volume_hrefs = to_object(@volumes)["hrefs"]
+    end
   end
 
-  $instances_hrefs = $operational_instances_hrefs + $provisioned_instances_hrefs + $running_instances_hrefs
+  $instances_hrefs = $operational_instances_hrefs + $provisioned_instances_hrefs + $running_instances_hrefs + $volume_hrefs
 
   $$bad_instances_array=[]
   $$add_tags_hash = {}
@@ -318,31 +325,37 @@ define send_tags_alert_email($tags,$to) do
     if $$instance_error == 'true'
       #issue with the instance, may no longer exists
     else
-      # Get instance name
-      if $server_object["details"][0]["state"] == 'provisioned'
+      # Get resource name
         # try for the instance name first, then get resource_uid
-        $instance_name = $server_object["details"][0]["name"]
-        if !$instance_name
-          $instance_name = $server_object["details"][0]["resource_uid"]
-        end
-      else
-        $instance_name = $server_object["details"][0]["name"]
+      $instance_name = $server_object["details"][0]["name"]
+      if !$instance_name
+        $instance_name = $server_object["details"][0]["resource_uid"]
       end
+
       if $instance_name == null
         $instance_name = 'unknown'
       end
 
-      # Get server state
-      if $server_object["details"][0]["state"] == null
-        $instance_state = 'unknown'
-      else
-        $instance_state = $server_object["details"][0]["state"]
+      # Get resource state/status
+      if $server_object['type'] == 'instances'
+        if $server_object["details"][0]["state"] == null
+          $instance_state = 'unknown'
+        else
+          $instance_state = $server_object["details"][0]["state"]
+        end
+      elsif $server_object['type'] == 'volumes'
+        if $server_object["details"][0]["status"] == null
+          $instance_state = 'unknown'
+        else
+          $instance_state = $server_object["details"][0]["status"]
+        end
       end
+
 
       # Get server access link
       $server_access_link_root = 'unknown'
       sub on_error: skip do
-        call get_server_access_link($instance) retrieve $server_access_link_root
+        call get_server_access_link($instance, $server_object['type']) retrieve $server_access_link_root
       end
       if $server_access_link_root == null
         $server_access_link_root = 'unknown'
@@ -392,29 +405,34 @@ define find_account_number() return $account_id do
   $account_id = last(split(select($session[0]["links"], {"rel":"account"})[0]["href"],"/"))
 end
 
-define get_server_access_link($instance_href) return $server_access_link_root do
+define get_server_access_link($instance_href, $resource_type) return $server_access_link_root do
   $rs_endpoint = "https://us-"+$$shard+".rightscale.com"
 
   $instance_id = last(split($instance_href, "/"))
-  $response = http_get(
-    url: $rs_endpoint+"/api/instances?ids="+$instance_id,
-    headers: {
-      "X-Api-Version": "1.6",
-      "X-Account": $$account_number
-    }
-  )
-  $instances = $response["body"]
-  $instance_of_interest = select($instances, { "href" : $instance_href })[0]
 
-  if $instance_of_interest["legacy_id"] == null
-    $legacy_id = "unknown"
-  else
-    $legacy_id = $instance_of_interest["legacy_id"]
+  if $resource_type == 'instances'
+    $response = http_get(
+      url: $rs_endpoint+"/api/" + $resource_type + "?ids=" + $instance_id,
+      headers: {
+        "X-Api-Version": "1.6",
+        "X-Account": $$account_number
+      }
+    )
+    $instances = $response["body"]
+    $instance_of_interest = select($instances, { "href" : $instance_href })[0]
+
+    if $instance_of_interest["legacy_id"] == null
+      $legacy_id = "unknown"
+    else
+      $legacy_id = $instance_of_interest["legacy_id"]
+    end
+
+    $data = split($instance_href, "/")
+    $cloud_id = $data[3]
+    $server_access_link_root = "https://my.rightscale.com/acct/" + $$account_number + "/clouds/" + $cloud_id + "/"+ $resource_type +"/" + $legacy_id
+  elsif $resource_type == 'volumes'
+    $server_access_link_root = "https://my.rightscale.com" + $instance_href
   end
-
-  $data = split($instance_href, "/")
-  $cloud_id = $data[3]
-  $server_access_link_root = "https://my.rightscale.com/acct/" + $$account_number + "/clouds/" + $cloud_id + "/instances/" + $legacy_id
 end
 
 # check the list of tags from instances if the key match
