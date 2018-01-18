@@ -23,7 +23,7 @@
 #   Run continuously checking periodically
 
 # Required prolog
-name 'Tag Checker'
+name 'CSV: Tag Checker'
 rs_ca_ver 20161221
 short_description "![Tag](https://s3.amazonaws.com/rs-pft/cat-logos/tag.png)\n
 Check for a tag and report which instances are missing it."
@@ -302,6 +302,8 @@ define send_tags_alert_email($tags,$to) do
     </body>
   </html>"
 
+  $columns = ["Instance Name", "State", "Link"]
+  call create_csv_with_columns($columns) retrieve $filename
   $$list_of_instances=""
   foreach $instance in $$bad_instances_array do
     $$instance_error = 'false'
@@ -343,6 +345,7 @@ define send_tags_alert_email($tags,$to) do
       end
 
       # Create the instance table
+      call update_csv_with_rows($filename, [$instance_name, $instance_state, $server_access_link_root]) retrieve $filename
       $instance_table = "<tr>" + $table_start + $instance_name + $table_end + $table_start + $instance_state + $table_end + $table_start + $server_access_link_root + $table_end + "</tr>"
       insert($$list_of_instances, -1, $instance_table)
     end
@@ -350,28 +353,50 @@ define send_tags_alert_email($tags,$to) do
 
   $email_body = $header + $$list_of_instances + $footer
 
-  call send_html_email($to, $from, $subject, $email_body) retrieve $response
+  call send_html_email($to, $from, $subject, $email_body, $filename) retrieve $response
 
   if $response['code'] != 200
     raise 'Failed to send email report: ' + to_s($response)
   end
 end
 
-define send_html_email($to, $from, $subject, $html) return $response do
-  $mailgun_endpoint = 'http://smtp.services.rightscale.com/v3/services.rightscale.com/messages'
+define create_csv_with_columns($columns) return $filename do
+  $endpoint = 'http://policies.services.rightscale.com/api/csv'
+  $response = http_post(
+    url: $endpoint,
+    headers: {"X-Api-Version": "1.0"},
+    body: { "data": [$columns] }
+  )
+  $filename = $response["body"]["file"]
+end
 
-  $to = gsub($to, "@", "%40")
-  $from = gsub($from, "@", "%40")
+define update_csv_with_rows($filename,$rows) return $filename do
+  $endpoint = "http://policies.services.rightscale.com/api/csv/" + $filename
+  $response = http_put(
+    url: $endpoint,
+    headers: {"X-Api-Version": "1.0"},
+    body: { "data": [$rows] }
+  )
+  $filename = $response["body"]["file"]
+end
+
+define send_html_email($to, $from, $subject, $html,$filename) return $response do
+  $endpoint = 'http://policies.services.rightscale.com/api/mail'
 
   # escape ampersands used in html encoding
   $html = gsub($html, "&", "%26")
 
-  $post_body = 'from=' + $from + '&to=' + $to + '&subject=' + $subject + '&html=' + $html
-
   $response = http_post(
-    url: $mailgun_endpoint,
+    url: $endpoint,
     headers: {"content-type": "application/x-www-form-urlencoded"},
-    body: $post_body
+    body: {
+    "to": $to,
+    "from": $from,
+    "subject": $subject,
+    "body": $html,
+    "attachment": $filename,
+    "encoding": "html"
+    }
   )
 end
 
