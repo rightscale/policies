@@ -20,10 +20,14 @@ import "sys_log"
 #  ------
 # Append to the audit entry detail for this process
 
-
+#######
+# deletes csv file from policies_mailer server
+# $endpoint - host of policies_mailer api server
+# $filename - name of the filename to delete, ex: 6901f064-8077-4644-984b-a3ee258f57c3.csv
+#######
 define delete_csv($endpoint,$filename) do
   call start_debugging()
-  $api_endpoint = $endpoint + "/api/csv/" + $filename
+  $api_endpoint = join([$endpoint, "/api/csv/", $filename])
   call sys_log.detail("endpoint: " + $api_endpoint)
   sub on_error: stop_debugging() do
     $response = http_delete(
@@ -34,13 +38,19 @@ define delete_csv($endpoint,$filename) do
   call stop_debugging()
 end
 
+#######
+# creates csv file from policies_mailer server
+# $endpoint - host of policies_mailer api server
+# $columns - array of strings for column names, ex: [ "column-a", "column-b" ] 
+#######
 define create_csv_with_columns($endpoint,$columns) return $filename do
   task_label("creating csv file")
   $filename = ""
-  $api_endpoint = $endpoint + "/api/csv/"
+  $api_endpoint = join([$endpoint, "/api/csv"])
   call sys_log.detail("endpoint: " + $api_endpoint)
   call start_debugging()
-  sub on_error: stop_debugging() do    
+  sub on_error: stop_debugging() do
+    call sys_log.detail("endpoint_sub: " + $api_endpoint)
     $response = http_post(
       url: $api_endpoint,
       headers: {"X-Api-Version": "1.0"},
@@ -52,54 +62,88 @@ define create_csv_with_columns($endpoint,$columns) return $filename do
   call stop_debugging()
 end
 
-define update_csv_with_rows($endpoint,$filename,$rows) return $filename do
+#######
+# adds rows to csv file from policies_mailer server
+# $endpoint - host of policies_mailer api server
+# $filename - name of the filename to delete, ex: 6901f064-8077-4644-984b-a3ee258f57c3.csv
+# $row - row to add to the csv file, ex: ["row-1-1", "row-1-2"]
+#######
+define update_csv_with_rows($endpoint,$filename,$row) return $filename do
   task_label("csv:" + $filename + " name: " + $rows[0])
   call start_debugging()
-  $filename = ""
-  $api_endpoint = $endpoint + "/api/csv/" + $filename
+  $api_endpoint = join([$endpoint, "/api/csv/", $filename])
   call sys_log.detail("endpoint: " + $api_endpoint)
+  $filename = ""
   sub on_error: stop_debugging() do
     $response = http_put(
       url: $api_endpoint,
       headers: {"X-Api-Version": "1.0"},
-      body: { "data": [$rows] }
+      body: { "data": [$row] }
     )
     $filename = $response["body"]["file"]
   end
+  $$update_filename = $filename
   call stop_debugging()
 end
 
-define send_html_email($endpoint,$to, $from, $subject, $html,$filename, $encoding) return $response do
+#######
+# sends emails 
+# $endpoint - host of policies_mailer api server
+# $to - email address to send to. 
+# $from - email address for from address
+# $subject - subject of the email
+# $body - body of the email
+# $filename - name of the filename to delete, ex: 6901f064-8077-4644-984b-a3ee258f57c3.csv
+# $encoding - email encoding type: text, html
+#######
+define send_html_email($endpoint,$to, $from, $subject, $body, $filename, $encoding) return $response do
   task_label("Sending email")
-  $api_endpoint = $endpoint + "/api/mail"
+  $api_endpoint = join([$endpoint, "/api/mail"])
   call sys_log.detail("endpoint: " + $api_endpoint)
   $response = ""
   call start_debugging()
+  $email_body = {
+    "to": $to,
+    "from": $from,
+    "subject": $subject,
+    "body": $body
+  }
+  if $filename != ""
+    $email_body["attachment"] =  $filename
+  end
+
+  if $encoding != ""
+    $email_body["encoding"] = $encoding
+  end
+
   sub on_error: stop_debugging() do
     $response = http_post(
       url: $api_endpoint,
       headers: {"X-Api-Version": "1.0"},
-      body: {
-      "to": $to,
-      "from": $from,
-      "subject": $subject,
-      "body": $html,
-      "attachment": $filename,
-      "encoding": $encoding
-      }
+      body: $email_body
     )
   end
   call stop_debugging()
 end
 
-define create_csv_and_send_email($endpoint,$to,$from,$subject,$html,$two_dimensional_array_of_csv_data,$encoding) return $response do
+#######
+# creates csv and sends email
+# $endpoint - host of policies_mailer api server
+# $to - email address to send to. 
+# $from - email address for from address
+# $subject - subject of the email
+# $body - body of the email
+# $two_dimensional_array_of_csv_data - ex: [["column-a","column-b"],["row-1-1", "row-1-2"]]
+# $encoding - email encoding type: text, html
+#######
+define create_csv_and_send_email($endpoint,$to,$from,$subject,$body,$two_dimensional_array_of_csv_data,$encoding) return $response do
   task_label("creating csv and send email")
-  $api_endpoint = $endpoint + "/api/csv/"
+  $api_endpoint = join([$endpoint, "/api/csv"])
   call sys_log.detail("endpoint: " + $api_endpoint)
   $response = ""
+  $filename = ""
   call start_debugging()
-  sub on_error:stop_debugging() do
-    call sys_log.detail("endpoint_sub: " + $api_endpoint)
+  sub on_error: stop_debugging() do
     $response = http_post(
       url: $api_endpoint,
       headers: {"X-Api-Version": "1.0"},
@@ -109,7 +153,7 @@ define create_csv_and_send_email($endpoint,$to,$from,$subject,$html,$two_dimensi
     $$mailer_filename = $filename
   end
   call stop_debugging()
-  call send_html_email($endpoint,$to, $from, $subject, $html,$filename, $encoding) retrieve $response
+  call send_html_email($endpoint, $to, $from, $subject, $body, $filename, $encoding) retrieve $response
 end
 
 define start_debugging() do

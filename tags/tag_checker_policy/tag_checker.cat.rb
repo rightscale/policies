@@ -361,7 +361,7 @@ define send_tags_alert_email($tags,$to) do
   end
 
   $email_body = $header + $$list_of_instances + $footer
-  call mailer.send_html_email($endpoint, $to, $from, $subject, $email_body, $filename) retrieve $response
+  call mailer.send_html_email($endpoint, $to, $from, $subject, $email_body, $filename, "html") retrieve $response
 
   if $response['code'] != 200
     raise 'Failed to send email report: ' + to_s($response)
