@@ -99,6 +99,7 @@ define create_csv_and_send_email($endpoint,$to,$from,$subject,$html,$two_dimensi
   $response = ""
   call start_debugging()
   sub on_error:stop_debugging() do
+    call sys_log.detail("endpoint_sub: " + $api_endpoint)
     $response = http_post(
       url: $api_endpoint,
       headers: {"X-Api-Version": "1.0"},
