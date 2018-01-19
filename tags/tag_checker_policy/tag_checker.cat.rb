@@ -187,10 +187,19 @@ define tag_checker() return $bad_instances do
     $instances_tags = rs_cm.tags.by_resource(resource_hrefs: [$hrefs])
     $tag_info_array = $instances_tags[0]
 
-    # check for missing tags
-    call check_tag_key($tag_info_array,$param_tag_keys_array,$advanced_tags)
-    # check for incorrect tag values
-    call check_tag_value($tag_info_array, $advanced_tags)
+    @resource = rs_cm.get(href: $hrefs)
+    $resource = to_object(@resource)
+
+    # resource must be an instance
+    # resource must be a volume not AzureRM
+    # resource must be a volume in AzureRM without volume_type
+    # if the volume is in azureRM and not a Managed Disk then skip
+    if $resource['type'] == 'instances' || ($resource['type'] == 'volumes' && @resource.cloud().name !~ /^AzureRM/) || ($resource['type'] == 'volumes' && @resource.cloud().name =~ /^AzureRM/ && any?(select($resource['details'][0]['links'],{rel: 'volume_type'})))
+      # check for missing tags
+      call check_tag_key($tag_info_array,$param_tag_keys_array,$advanced_tags)
+      # check for incorrect tag values
+      call check_tag_value($tag_info_array, $advanced_tags)
+    end
   end
   # add missing tag with default value from $advanced_tags
   if any?(keys($advanced_tags))
@@ -245,7 +254,7 @@ define send_tags_alert_email($tags,$to) do
   # Build email
   $subject = "Tag Checker Policy: "
   $from = "policy-cat@services.rightscale.com"
-  $email_msg = "RightScale discovered that the following instance are missing tags <b>" + $tags + "</b> in <b>"+ $account_name +".</b> Per the policy set by your organization, these instances are not compliant"
+  $email_msg = "RightScale discovered that the following resource are missing tags <b>" + $tags + "</b> in <b>"+ $account_name +".</b> Per the policy set by your organization, these resources are not compliant"
 
   $table_start="<td align=%22left%22 valign=%22top%22>"
   $table_end="</td>"
@@ -279,7 +288,7 @@ define send_tags_alert_email($tags,$to) do
                 <table border=%220%22 cellpadding=%2210%22 cellspacing=%220%22 width=%22100%%22 id=%22emailBody%22>
                   <tr>
                     <td align=%22left%22 valign=%22top%22>
-                      Instance Name
+                      Resource Name
                     </td>
                     <td align=%22left%22 valign=%22top%22>
                       State
