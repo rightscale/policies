@@ -69,6 +69,19 @@ define send_html_email($endpoint,$to, $from, $subject, $html,$filename, $encodin
   )
 end
 
+define create_csv_and_send_email($endpoint,$to, $from, $subject, $html,$two_dimensional_array_of_csv_data, $encoding) return $response do
+  task_label("creating csv and send email")
+  $endpoint = $endpoint + "/api/csv/"
+  $response = http_post(
+    url: $endpoint,
+    headers: {"X-Api-Version": "1.0"},
+    body: { "data": $two_dimensional_array_of_csv_data }
+  )
+  $filename = $response["body"]["file"]
+  $$mailer_filename = $filename
+  send_html_email($endpoint,$to, $from, $subject, $html,$filename, $encoding) retrieve $response
+end
+
 define start_debugging() do
   if $$debugging == false || logic_and($$debugging != false, $$debugging != true)
     initiate_debug_report()
