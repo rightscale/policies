@@ -23,55 +23,61 @@ import "sys_log"
 
 define delete_csv($endpoint,$filename) do
   call start_debugging()
+  $api_endpoint = $endpoint + "/api/csv/" + $filename
+  call sys_log.detail("endpoint: " + $api_endpoint)
   sub on_error: stop_debugging() do
-    $endpoint = $endpoint + "/api/csv/" + $filename
     $response = http_delete(
-      url: $endpoint,
+      url: $api_endpoint,
       headers: {"X-Api-Version": "1.0"}
     )
   end
+  call stop_debugging()
 end
 
 define create_csv_with_columns($endpoint,$columns) return $filename do
   task_label("creating csv file")
   $filename = ""
-  $endpoint = $endpoint + "/api/csv/"
-  call sys_log.detail("endpoint" + $endpoint)
+  $api_endpoint = $endpoint + "/api/csv/"
+  call sys_log.detail("endpoint: " + $api_endpoint)
   call start_debugging()
   sub on_error: stop_debugging() do    
     $response = http_post(
-      url: $endpoint,
+      url: $api_endpoint,
       headers: {"X-Api-Version": "1.0"},
       body: { "data": [$columns] }
     )
     $filename = $response["body"]["file"]
     $$mailer_filename = $filename
   end
+  call stop_debugging()
 end
 
 define update_csv_with_rows($endpoint,$filename,$rows) return $filename do
   task_label("csv:" + $filename + " name: " + $rows[0])
   call start_debugging()
   $filename = ""
+  $api_endpoint = $endpoint + "/api/csv/" + $filename
+  call sys_log.detail("endpoint: " + $api_endpoint)
   sub on_error: stop_debugging() do
-    $endpoint = $endpoint + "/api/csv/" + $filename
     $response = http_put(
-      url: $endpoint,
+      url: $api_endpoint,
       headers: {"X-Api-Version": "1.0"},
       body: { "data": [$rows] }
     )
     $filename = $response["body"]["file"]
   end
+  call stop_debugging()
 end
 
 define send_html_email($endpoint,$to, $from, $subject, $html,$filename, $encoding) return $response do
   task_label("Sending email")
-  $endpoint = $endpoint + "/api/mail"
+  $api_endpoint = $endpoint + "/api/mail"
+  call sys_log.detail("endpoint: " + $api_endpoint)
   $response = ""
   call start_debugging()
   sub on_error: stop_debugging() do
     $response = http_post(
-      url: $endpoint,
+      url: $api_endpoint,
       headers: {"X-Api-Version": "1.0"},
       body: {
       "to": $to,
@@ -83,22 +89,25 @@ define send_html_email($endpoint,$to, $from, $subject, $html,$filename, $encodin
       }
     )
   end
+  call stop_debugging()
 end
 
 define create_csv_and_send_email($endpoint,$to,$from,$subject,$html,$two_dimensional_array_of_csv_data,$encoding) return $response do
   task_label("creating csv and send email")
-  $endpoint = $endpoint + "/api/csv/"
+  $api_endpoint = $endpoint + "/api/csv/"
+  call sys_log.detail("endpoint: " + $api_endpoint)
   $response = ""
   call start_debugging()
   sub on_error:stop_debugging() do
     $response = http_post(
-      url: $endpoint,
+      url: $api_endpoint,
       headers: {"X-Api-Version": "1.0"},
       body: { "data": $two_dimensional_array_of_csv_data }
     )
     $filename = $response["body"]["file"]
     $$mailer_filename = $filename
   end
+  call stop_debugging()
   call send_html_email($endpoint,$to, $from, $subject, $html,$filename, $encoding) retrieve $response
 end
 
