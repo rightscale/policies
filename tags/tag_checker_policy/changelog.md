@@ -1,9 +1,13 @@
 Tag Checker Policy changelog
 
+v1.6
+----
+- applying the tag policy to volumes. See [README](for details)
+
 v1.5
 ----
 - remove `param_email` requirement and use launched by tag to send emails, and append to `param_email` list.
-- Add Delete Resource parameter option if tags missing
+- Add Delete Resource parameter option if tags missing. See [README](for details)
 
 v1.4
 ----
