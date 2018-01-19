@@ -26,7 +26,7 @@
 name 'Tag Checker'
 rs_ca_ver 20161221
 short_description "![Tag](https://s3.amazonaws.com/rs-pft/cat-logos/tag.png)\n
-Check for a tag and report which instances are missing it."
+Check for a tag and report which instances and volumes are missing it."
 long_description "Version: 1.6"
 
 ##################
@@ -78,9 +78,9 @@ end
 # Outputs returned to the user #
 ################################
 output "output_bad_instances" do
-  label "Instances Missing Specified Tag(s)"
+  label "Resources Missing Specified Tag(s)"
   category "Output"
-  description "Instances missing the specified tag(s)."
+  description "Resources missing the specified tag(s)."
 end
 
 ####################
