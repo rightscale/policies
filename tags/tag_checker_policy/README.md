@@ -2,11 +2,11 @@
 
 **What it does**
 
-Uses RightScale Cloud Language (RCL) to check all instances in an account for a given tag key and reports back which
-servers or instances are missing the tag.
+Uses RightScale Cloud Language (RCL) to check all instances and volumes in an account for a given tag key and reports back which
+resources are missing the tag.  
 
-**Instance Names**
-The report will show the name or the resource_uid of the resource.  If the resource doesn't have an instance name then it will display the resource_uid.  For resources that do not have a name, you can follow the resource link and provide name.  The next report will have the new resource name
+**Resource Names**
+The report will show the name or the resource_uid of the resource.  If the resource doesn't have an  name then it will display the resource_uid.  For resources that do not have a name, you can follow the resource link and provide name.  The next report will have the new resource name
 
 **Using Advanced Tags**
 
