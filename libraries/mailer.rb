@@ -1,6 +1,7 @@
 name "Policies Mailer Package"
 rs_ca_ver 20161221
-short_description "Provides functionality for uber cats"
+short_description "This package provides definitions to support the policies_mailer service"
+long_description "Version: 1.0"
 package "mailer"
 import "sys_log"
 
@@ -14,11 +15,11 @@ import "sys_log"
 #  To define which groups can launch this cat, use the following code.
 #  ```
 #  import 'mailer'
-#  call mailer.create_csv_with_columns(["column-a","column-b"])
+#  call mailer.create_csv_with_columns($endpoint,["column-a","column-b"]) retrieve $filename
 #  ```
-#
 #  ------
-# Append to the audit entry detail for this process
+# API Documentation: https://rs-services.github.io/policies_mailer/#/
+#
 
 #######
 # deletes csv file from policies_mailer server
