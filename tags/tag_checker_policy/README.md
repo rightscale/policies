@@ -8,6 +8,9 @@ resources are missing the tag.
 **Resource Names**
 The report will show the name or the resource_uid of the resource.  If the resource doesn't have an  name then it will display the resource_uid.  For resources that do not have a name, you can follow the resource link and provide name.  The next report will have the new resource name
 
+**Instance Names**
+The report will show the name or the resource_uid of the resource.  If the resource doesn't have an instance name then it will display the resource_uid.  For resources that do not have a name, you can follow the resource link and provide name.  The next report will have the new resource name
+
 **Using Advanced Tags**
 
 You can create a custom tag policy by using a JSON object that contains the tags, keys and validation value(s).  There are three options; string, regex and array.  You may include JSON in the field *Tags' Namespace:Keys Advanced List.* or provide a public url that contains your JSON.  The first key is the tag to match, each key has two other keys: validation-type is either array, string or regex.  validation includes the values the tag must contain.  If the tags and values are not on the server than the server will be reported in the email at the end of the cloudapp exectuion.
@@ -34,6 +37,9 @@ Example JSON:
 }
 ```
 
+**Adding Delete Date Tags**
+
+You may add a new tag (rs_policy:delete_date) to all instances that do not meet the tag policy.   Use the **# of days from now for delete_date tag value** field to set the rs_policy:delete_date tag value with the date the number of days from the run date.  The resources are only tagged, no other action is taken.
 
 **Scheduling when the policy runs**
 

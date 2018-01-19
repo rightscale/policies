@@ -1,5 +1,10 @@
 Tag Checker Policy changelog
 
+v1.5
+----
+- remove `param_email` requirement and use launched by tag to send emails, and append to `param_email` list.
+- Add Delete Resource parameter option if tags missing
+
 v1.4
 ----
 - adding advanced tag matching.  See [README](for details)

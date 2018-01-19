@@ -27,7 +27,7 @@ name 'Tag Checker'
 rs_ca_ver 20161221
 short_description "![Tag](https://s3.amazonaws.com/rs-pft/cat-logos/tag.png)\n
 Check for a tag and report which instances are missing it."
-long_description "Version: 1.4"
+long_description "Version: 1.5"
 
 ##################
 # User inputs    #
@@ -50,12 +50,20 @@ parameter "param_advanced_tag_key" do
   allowed_pattern '^(http|\{.*\}|)'
 end
 
+parameter "param_delete_days" do
+  category "User Inputs"
+  label "# of days from now for delete_date tag value"
+  type "string"
+  #allows any number between 1-99 or blank
+  allowed_pattern '(^[1-9][0-9]*$|)'
+end
+
 parameter "param_email" do
   category "Contact"
   label "Email addresses (separate with commas)"
   type "string"
-  allowed_pattern '^([a-zA-Z0-9-_.]+[@]+[a-zA-Z0-9-_.]+[.]+[a-zA-Z0-9-_]+,*)+$'
-  min_length 6
+  # allow list of comma seperated email addresses or nothing
+  allowed_pattern '^([a-zA-Z0-9-_.]+[@]+[a-zA-Z0-9-_.]+[.]+[a-zA-Z0-9-_]+,*|)+$'
 end
 
 parameter "param_run_once" do
@@ -98,13 +106,16 @@ end
 # DEFINITIONS (i.e. RCL) #
 ##########################
 # Go through and find improperly tagged instances
-define launch_tag_checker($param_tag_key,$param_advanced_tag_key,$param_email,$param_run_once) return $bad_instances do
+define launch_tag_checker($param_tag_key,$param_advanced_tag_key,$param_email,$param_run_once,$param_delete_days) return $bad_instances do
   # add deployment tags for the parameters and then tell tag_checker to go
   if $param_tag_key != ""
     rs_cm.tags.multi_add(resource_hrefs: [@@deployment.href], tags: [join(["tagchecker:tag_key=",$param_tag_key])])
   end
   if $param_advanced_tag_key != ""
     rs_cm.tags.multi_add(resource_hrefs: [@@deployment.href], tags: [join(["tagchecker:advanced_tag_key=",$param_advanced_tag_key])])
+  end
+  if $param_delete_days != ""
+    rs_cm.tags.multi_add(resource_hrefs: [@@deployment.href], tags: [join(["tagchecker:delete_days=",$param_delete_days])])
   end
 
   call tag_checker() retrieve $bad_instances
@@ -125,7 +136,7 @@ define tag_checker() return $bad_instances do
   $tag_key = ""
   $advanced_tag_keys = {}
   $advanced_tags = {}
-
+  $delete_days = 0
   # retrieve tags on current deployment
   call get_tags_for_resource(@@deployment) retrieve $tags_on_deployment
 
@@ -140,6 +151,8 @@ define tag_checker() return $bad_instances do
       else
         $advanced_tags = from_json($advanced_tag_key_value)
       end
+    elsif $current_tag =~ "(tagchecker:delete_days)"
+      $delete_days =  to_n(last(split($current_tag,"=")))
     end
   end
 
@@ -152,7 +165,7 @@ define tag_checker() return $bad_instances do
 
   # for testing.  change the deployment_href to one that includes a few servers
   # to test with.  uncomment code and comment the concurrent block below it.
-  # $deployment_href =  '/api/deployments/378563001'
+  # $deployment_href =  '/api/deployments/378563001' # replace with your deployment here
   # @instances = rs_cm.instances.get(filter: ["state==operational","deployment_href=="+$deployment_href])
   # $operational_instances_hrefs = to_object(@instances)["hrefs"]
   # @volumes = rs_cm.volumes.get(filter: ["deployment_href=="+$deployment_href])
@@ -207,7 +220,16 @@ define tag_checker() return $bad_instances do
    call update_tag_prefix_value($advanced_tags)
   end
 
+  if $delete_days > 0
+    call add_delete_date_tag($delete_days)
+  end
+
+
   $bad_instances = to_s(unique($$bad_instances_array))
+
+  # get the users email and add to param_email
+  $user_email = tag_value(@@deployment, 'selfservice:launched_by')
+  $param_email = $user_email +','+$param_email
 
   # Send an alert email if there is at least one improperly tagged instance
   if logic_not(empty?($$bad_instances_array))
@@ -580,6 +602,51 @@ define update_tag_prefix_value($advanced_tags) do
       if !include?($item['tag_value'],$advanced_tags[$key]['prefix-value'])
         rs_cm.tags.multi_add(resource_hrefs: [$resource], tags: [$tag])
       end
+    end
+  end
+end
+
+# add a rs_policy:delete_date tag to invalid instances
+# only add the tag if it doesn't exist.
+define add_delete_date_tag($delete_days) do
+  $clouds = {}
+  $delete_date = to_d(to_n(strftime(now(),'%s')) + (86400 * to_n($delete_days)))
+  $formated_delete_date = strftime($delete_date,'%F')
+  # get list of resource and and missing tags.
+  foreach $resource in unique($$bad_instances_array) do
+    # make a map of resources by cloud to add tags
+    # skip if rs_policy:delete_date tag exists.  we don't want to update the tag
+    @resource = rs_cm.get(href: $resource)
+    if !tag_value(@resource,'rs_policy:delete_date')
+      $cloud_id = split($resource,'/')[3]
+      $resource_array=[]
+      foreach $item in $clouds[$cloud_id] do
+        $resource_array << $item
+      end
+      $resource_array << $resource
+      $clouds[$cloud_id] = $resource_array
+    end
+  end
+  # add rs_policy:delete_date tag to each resource by cloud
+  foreach $cloud in keys($clouds) do
+    if any?($clouds[$cloud])
+      rs_cm.tags.multi_add(resource_hrefs: $clouds[$cloud], tags: [join(["rs_policy:delete_date=",$formated_delete_date])])
+    end
+  end
+end
+
+# remove rs_policy:delete_date tag from valid resources
+# this definition should be called last after the $$bad_instances_array
+# is  complete
+define remove_delete_date_tag() do
+  $resources = rs_cm.tags.by_tag(tags: ["rs_policy:delete_date=*"],
+    resource_type: 'instances')
+  $resources = first(first($resources))["links"]
+  foreach $resource in $resources do
+    if !contains?(unique($$bad_instances_array),[$resource['href']])
+      	@resource = rs_cm.instances.get(href: $resource['href'])
+        rs_cm.tags.multi_delete(resource_hrefs: [@resource.href],
+        tags: ["rs_policy:delete_date="+tag_value(@resource,'rs_policy:delete_date')])
     end
   end
 end
