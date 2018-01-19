@@ -70,7 +70,7 @@ end
 # $row - row to add to the csv file, ex: ["row-1-1", "row-1-2"]
 #######
 define update_csv_with_rows($endpoint,$filename,$row) return $filename do
-  task_label("csv:" + $filename + " name: " + $rows[0])
+  task_label("csv:" + $filename + " name: " + $row[0])
   call start_debugging()
   $api_endpoint = join([$endpoint, "/api/csv/", $filename])
   call sys_log.detail("endpoint: " + $api_endpoint)
