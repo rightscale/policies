@@ -276,7 +276,7 @@ define send_tags_alert_email($tags,$to) do
   # Build email
   $subject = "Tag Checker Policy: "
   $from = "policy-cat@services.rightscale.com"
-  $email_msg = "RightScale discovered that the following resource are missing tags <b>" + $tags + "</b> in <b>"+ $account_name +".</b> Per the policy set by your organization, these resources are not compliant"
+  $email_msg = "RightScale discovered that the following resources are missing tags <b>" + $tags + "</b> in <b>"+ $account_name +".</b> Per the policy set by your organization, these resources are not compliant"
 
   $table_start="<td align=%22left%22 valign=%22top%22>"
   $table_end="</td>"
