@@ -12,10 +12,13 @@ import "sys_log"
 #
 #  EXAMPLE
 #  -----
-#  To define which groups can launch this cat, use the following code.
+#  To create a csv file, update csv file
 #  ```
 #  import 'mailer'
+#  $endpoint = "http://endpoint.example.com
 #  call mailer.create_csv_with_columns($endpoint,["column-a","column-b"]) retrieve $filename
+#  call mailer.update_csv_with_rows($endpoint,$filename,["row-1-item-1","row-1-item-2"])
+#  call send_html_email($endpoint,"bob@example.com", "john@example.com", "Email Subject", "email body", $filename, "text") return $response
 #  ```
 #  ------
 # API Documentation: https://rs-services.github.io/policies_mailer/#/
