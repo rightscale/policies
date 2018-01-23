@@ -772,8 +772,7 @@ end
 
 define get_html_template() return $html_template do
   $response = http_get(
-    url: 'https://raw.githubusercontent.com/rightscale/policies/c4ad9bd2eaf68b524acb55e86a8a4d8460b90550/templates/email_template.html'
-	#url: 'https://raw.githubusercontent.com/rightscale/policies/e110e9ccdcc3283a7aaee59f91d56bb7108a4f0a/templates/email_template.html'
+    url: 'https://raw.githubusercontent.com/rightscale/policies/master/templates/email_template.html'
   )
   $html_template = $response['body']
 end
@@ -786,6 +785,7 @@ define send_html_email($to, $from, $subject, $html) return $response do
 
   # escape ampersands used in html encoding
   $html = gsub($html, "&", "%26")
+  $subject = gsub($subject, "&", "%26")
 
   $post_body = 'from=' + $from + '&to=' + $to + '&subject=' + $subject + '&html=' + $html
 
@@ -812,7 +812,10 @@ define send_report($start_count, $stop_count, $email_recipients, $schedule_name,
   if $start_count > 0
     $table_rows = ''
     foreach $instance in $instances_started do
-      $table_rows = $table_rows + '<tr><td>' + $instance['name'] + '</td><td>' + $instance['href'] + '</td><td>started</td></tr>'
+      sub on_error: skip do
+        call get_server_access_link($instance['href']) retrieve $server_access_link_root
+        $table_rows = $table_rows + '<tr><td>' + $instance['name'] + '</td><td>' + $server_access_link_root + '</td><td>started</td></tr>'
+      end
     end
   end
   if $stop_count > 0
@@ -830,6 +833,7 @@ define send_report($start_count, $stop_count, $email_recipients, $schedule_name,
 
   # render the template
   $html = $html_template
+  $html = gsub($html, '{{pre_header_text}}', '')
   $html = gsub($html, '{{title}}', $subject)
   $html = gsub($html, '{{body}}', $body_html)
   $html = gsub($html, '{{footer_text}}', $footer_text)
