@@ -818,7 +818,10 @@ define send_report($start_count, $stop_count, $email_recipients, $schedule_name,
   if $stop_count > 0
     $table_rows = ''
     foreach $instance in $instances_stopped do
-      $table_rows = $table_rows + '<tr><td>' + $instance['name'] + '</td><td>' + $instance['href'] + '</td><td>stopped</td></tr>'
+      sub on_error: skip do
+        call get_server_access_link($instance['href']) retrieve $server_access_link_root
+        $table_rows = $table_rows + '<tr><td>' + $instance['name'] + '</td><td>' + $server_access_link_root + '</td><td>stopped</td></tr>'
+      end
     end
   end
   $body_html = $body_html + '<table><tr><th>Instance Name</th><th>Href</th><th>Action</tr>' + $table_rows + '</table></body></html>'
@@ -1071,3 +1074,45 @@ operation 'terminate' do
   description 'Terminate the scheduler.'
   definition 'terminate_scheduler'
 end
+
+# create linkable href for email report
+define get_server_access_link($instance_href) return $server_access_link_root do
+
+    call find_shard() retrieve $shard
+    call find_account_number() retrieve $account_number
+    $rs_endpoint = "https://us-"+$shard+".rightscale.com"
+
+    $instance_id = last(split($instance_href, "/"))
+    $response = http_get(
+      url: $rs_endpoint+"/api/instances?ids="+$instance_id,
+      headers: {
+      "X-Api-Version": "1.6",
+      "X-Account": $account_number
+      }
+     )
+     $instances = $response["body"]
+     $instance_of_interest = select($instances, { "href" : $instance_href })[0]
+
+     if $instance_of_interest["legacy_id"] == 'null'
+       $legacy_id = "unknown"
+     else
+       $legacy_id = $instance_of_interest["legacy_id"]
+     end
+
+     $data = split($instance_href, "/")
+     $cloud_id = $data[3]
+     $server_access_link_root = "https://my.rightscale.com/acct/" + $account_number + "/clouds/" + $cloud_id + "/instances/" + $legacy_id
+ end
+
+ # Returns the RightScale account number in which the CAT was launched.
+ define find_account_number() return $account_id do
+   $session = rs_cm.sessions.index(view: "whoami")
+   $account_id = last(split(select($session[0]["links"], {"rel":"account"})[0]["href"],"/"))
+ end
+
+ # Returns the RightScale shard for the account the given CAT is launched in.
+ define find_shard() return $shard_number do
+   call find_account_number() retrieve $account_number
+   $account = rs_cm.get(href: "/api/accounts/" + $account_number)
+   $shard_number = last(split(select($account[0]["links"], {"rel":"cluster"})[0]["href"],"/"))
+ end
