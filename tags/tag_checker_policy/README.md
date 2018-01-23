@@ -6,7 +6,7 @@ Uses RightScale Cloud Language (RCL) to check all instances and volumes in an ac
 resources are missing the tag.   When searching for volumes in AzureRM, the volume must be a managed disk.  The policy will only check RightScale Tags.  Instance tags are bi-directionally synced with the cloud, but volumes are not bi-directionally synced.  Use the [Volume Tag Sync Policy](https://github.com/rightscale/policies/tree/master/tags/volume_tag_sync_policy) to bi-directionally sync tags between the cloud and RightScale.
 
 **Dependencies**
-  - [sys_log](https://github.com/rightscale/rightscale-plugins/master/libraries/sys_log.rb)
+  - [sys_log](https://github.com/rightscale/rightscale-plugins/blob/master/libraries/sys_log.rb)
   - [mailer](https://github.com/rightscale/policies/blob/master/libraries/mailer.rb)
 
 **Resource Names**
