@@ -1,5 +1,10 @@
 Tag Checker Policy changelog
 
+v2.0
+----
+- converting from mailgun to policies_mailer
+- adding csv attachment
+
 v1.6
 ----
 - applying the tag policy to volumes. See [README](for details)
