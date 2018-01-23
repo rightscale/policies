@@ -9,6 +9,16 @@ resources are missing the tag.   When searching for volumes in AzureRM, the volu
   - [sys_log](https://github.com/rightscale/rightscale-plugins/blob/master/libraries/sys_log.rb)
   - [mailer](https://github.com/rightscale/policies/blob/master/libraries/mailer.rb)
 
+
+**Installation**
+1. Be sure your RightScale account is SelfService enabled
+1. Follow the Getting Started section to create a Service Account and RightScale Credentials
+1. Navigate to the appropriate SelfService portal
+   - For more details on using the portal review the [SS User Interface Guide](http://docs.rightscale.com/ss/guides/ss_user_interface_guide.html)
+1. In the Design section, use the `Upload CAT` interface to complete the following:
+   1. Upload each of packages listed in the **Dependencies** Section in order
+   1. Upload `tag_checker.cat.rb`
+
 **Resource Names**
 
 The report will show the name or the resource_uid of the resource.  If the resource doesn't have an  name then it will display the resource_uid.  For resources that do not have a name, you can follow the resource link and provide name.  The next report will have the new resource name.   
