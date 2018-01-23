@@ -772,7 +772,7 @@ end
 
 define get_html_template() return $html_template do
   $response = http_get(
-    url: 'https://raw.githubusercontent.com/rs-services/policy-cats/master/templates/email_template.html'
+    url: 'https://raw.githubusercontent.com/rightscale/policies/c4ad9bd2eaf68b524acb55e86a8a4d8460b90550/templates/email_template.html'
 	#url: 'https://raw.githubusercontent.com/rightscale/policies/e110e9ccdcc3283a7aaee59f91d56bb7108a4f0a/templates/email_template.html'
   )
   $html_template = $response['body']
