@@ -1,4 +1,5 @@
 Stop/Start Scheduler
+
 **What it does**
 
 Starts or stops instances based on a given schedule."
