@@ -603,15 +603,17 @@ define add_delete_date_tag($delete_days) do
   foreach $resource in unique($$bad_instances_array) do
     # make a map of resources by cloud to add tags
     # skip if rs_policy:delete_date tag exists.  we don't want to update the tag
-    @resource = rs_cm.get(href: $resource)
-    if !tag_value(@resource,'rs_policy:delete_date')
-      $cloud_id = split($resource,'/')[3]
-      $resource_array=[]
-      foreach $item in $clouds[$cloud_id] do
-        $resource_array << $item
+    sub on_error: skip do
+      @resource = rs_cm.get(href: $resource)
+      if !tag_value(@resource,'rs_policy:delete_date')
+        $cloud_id = split($resource,'/')[3]
+        $resource_array=[]
+        foreach $item in $clouds[$cloud_id] do
+          $resource_array << $item
+        end
+        $resource_array << $resource
+        $clouds[$cloud_id] = $resource_array
       end
-      $resource_array << $resource
-      $clouds[$cloud_id] = $resource_array
     end
   end
   # add rs_policy:delete_date tag to each resource by cloud
