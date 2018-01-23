@@ -1,6 +1,7 @@
 name 'Fastly Security Group Rules'
 rs_ca_ver 20160622
 short_description "Fastly Security Group Rules"
+long_description "Version: 1.0"
 
 #Copyright 2017 RightScale
 #
