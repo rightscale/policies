@@ -14,33 +14,8 @@
 
 name 'Start/Stop Scheduler'
 short_description "![RS Policy](https://goo.gl/RAcMcU =64x64)
-
 Starts or stops instances based on a given schedule."
-long_description "This automated policy CloudApp will find instances specifically tagged
-for start or stop/terminate based on a specific schedule.
-
-It is recommened to run this CloudApp with the 'Always On' schedule
-unless you want to explicitly exclude times that instance(s) could be started or stopped.
-
-For an instance to be a candidate for scheduling actions managed by this CloudApp,
-a tag matching the chosen *Schedule Name* parameter (`ss_schedule_name`) should exist on the instance.
-Both RightScale-managed servers and plain instances are supported (including all clouds).
-
-The tag value needs to match an existing schedule within the RightScale Self-Service Schedule manager.
-The format of the tag is as follows:
-
-    instance:schedule=<name of ss schedule>
-
-For example, within schedule manager, create a new schedule for CloudApps to
-run between 7am and 11pm on all weekdays (M,T,W,T,F).
-On the desired instance(s), add the tag:
-
-    instance:schedule=7am-11pm Weekdays
-
-The CloudApp will poll the RightScale Cloud Management API frequently, stopping
-any instances running after 11pm or on weekends; and start instances that are
-currently stopped between 7am and 11pm on any weekday."
-
+long_description "Version 1.1"
 rs_ca_ver 20161221
 
 parameter 'ss_schedule_name' do
@@ -735,6 +710,11 @@ define get_ss_schedules() return $values do
   $values = @schedules.name[]
 end
 
+define error_server_stop() return $server_stop_error do
+  $server_stop_error = "unknown"
+  $_error_behavior = "skip"
+end
+
 define window_active($start_hour, $start_minute, $start_rule, $stop_hour, $stop_minute, $stop_rule, $tz) return $window_active do
   $params = {
     verb: 'post',
@@ -949,13 +929,15 @@ define run_scan($ss_schedule_name, $scheduler_tags_exclude, $scheduler_dry_mode,
               # 2. current operational state
               if (! $window_active)
 
-                if (@instance.state =~ $stoppable)
+                if (@instance.state =~ $stoppable) && (instance.locked == false)
                 # stop the instance
                   if $scheduler_dry_mode != 'true'
                     call audit_log('> ' + @instance.name + ': Stopping ...', to_s(@instance))
-                    @instance.stop()
-                    $stop_count = $stop_count + 1
-                    $instances_stopped << { href: @instance.href, name: @instance.name }
+                    sub on_error: error_server_stop() do
+                      @instance.stop()
+                      $stop_count = $stop_count + 1
+                      $instances_stopped << { href: @instance.href, name: @instance.name }
+                    end
                   else
                     call audit_log('> Dry mode: Skipping stop of ' + @instance.name, to_s(@instance.href))
                   end

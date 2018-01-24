@@ -2,8 +2,9 @@ Stop/Start Scheduler
 
 **What it does**
 
-Starts or stops instances based on a given schedule."
-long_description "This automated policy CloudApp will find instances specifically tagged
+Starts or stops instances based on a given schedule.
+
+This automated policy CloudApp will find instances specifically tagged
 for start or stop/terminate based on a specific schedule.
 
 It is recommended to run this CloudApp with the 'Always On' schedule
