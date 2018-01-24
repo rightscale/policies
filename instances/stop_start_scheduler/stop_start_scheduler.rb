@@ -710,9 +710,15 @@ define get_ss_schedules() return $values do
   $values = @schedules.name[]
 end
 
-define error_server_stop() return $server_stop_error do
-  $server_stop_error = "unknown"
+define error_server_stop() do
   $_error_behavior = "skip"
+  foreach $e in $_errors do
+    if $e["error_details"]["summary"] !~ /The instance is not stoppable/
+      $_error_behavior = "raise"
+    else
+      $$unstoppable_count = $$unstoppable_count + 1
+    end
+  end
 end
 
 define window_active($start_hour, $start_minute, $start_rule, $stop_hour, $stop_minute, $stop_rule, $tz) return $window_active do
@@ -776,7 +782,7 @@ define send_html_email($to, $from, $subject, $html) return $response do
   )
 end
 
-define send_report($start_count, $stop_count, $email_recipients, $schedule_name, $instances_started, $instances_stopped) return $response do
+define send_report($start_count, $stop_count, $locked_count, $email_recipients, $schedule_name, $instances_started, $instances_stopped) return $response do
   call find_account_name() retrieve $account_name
 
   # email content
@@ -787,7 +793,7 @@ define send_report($start_count, $stop_count, $email_recipients, $schedule_name,
   call get_html_template() retrieve $html_template
 
   $body_html = '<html><body><img src="https://assets.rightscale.com/735ca432d626b12f75f7e7db6a5e04c934e406a8/web/images/logo.png" style="width:220px" />
-                <p>RightScale started ' + to_s($start_count) + ' instance(s) and stopped ' + to_s($stop_count) + ' instance(s) based on the ' + $schedule_name + ' Self-Service schedule.</p>'
+                <p>RightScale started ' + to_s($start_count) + ' instance(s) and stopped ' + to_s(($stop_count-($locked_count+$$unstoppable_count))) + ' instance(s) based on the ' + $schedule_name + ' Self-Service schedule.</p>'
 
   if $start_count > 0
     $table_rows = ''
@@ -803,7 +809,8 @@ define send_report($start_count, $stop_count, $email_recipients, $schedule_name,
     foreach $instance in $instances_stopped do
       sub on_error: skip do
         call get_server_access_link($instance['href']) retrieve $server_access_link_root
-        $table_rows = $table_rows + '<tr><td>' + $instance['name'] + '</td><td>' + $server_access_link_root + '</td><td>stopped</td></tr>'
+        call get_stopping_instance_state($instance['href']) retrieve $state
+        $table_rows = $table_rows + '<tr><td>' + $instance['name'] + '</td><td>' + $server_access_link_root + '</td><td>'+ $state +'</td></tr>'
       end
     end
   end
@@ -844,6 +851,8 @@ define run_scan($ss_schedule_name, $scheduler_tags_exclude, $scheduler_dry_mode,
   # set the counters and action stores
   $stop_count = 0
   $start_count = 0
+  $locked_count = 0
+  $$unstoppable_count = 0
   $instances_started = []
   $instances_stopped = []
 
@@ -929,15 +938,19 @@ define run_scan($ss_schedule_name, $scheduler_tags_exclude, $scheduler_dry_mode,
               # 2. current operational state
               if (! $window_active)
 
-                if (@instance.state =~ $stoppable) && (instance.locked == false)
+                if (@instance.state =~ $stoppable)
                 # stop the instance
                   if $scheduler_dry_mode != 'true'
                     call audit_log('> ' + @instance.name + ': Stopping ...', to_s(@instance))
                     sub on_error: error_server_stop() do
-                      @instance.stop()
-                      $stop_count = $stop_count + 1
-                      $instances_stopped << { href: @instance.href, name: @instance.name }
+                      if @instance.locked == false
+                        @instance.stop()
+                      else
+                        $locked_count = $locked_count + 1
+                      end
                     end
+                    $stop_count = $stop_count + 1
+                    $instances_stopped << { href: @instance.href, name: @instance.name }
                   else
                     call audit_log('> Dry mode: Skipping stop of ' + @instance.name, to_s(@instance.href))
                   end
@@ -972,7 +985,7 @@ define run_scan($ss_schedule_name, $scheduler_tags_exclude, $scheduler_dry_mode,
       # email report
   if ($stop_count > 0 || $start_count > 0) && (size($email_recipients) > 0)
         call audit_log('Sending report to ' + $email_recipients, $email_recipients)
-        call send_report($start_count, $stop_count, $email_recipients, $ss_schedule_name, $instances_started, $instances_stopped)
+        call send_report($start_count, $stop_count, $locked_count, $email_recipients, $ss_schedule_name, $instances_started, $instances_stopped)
   end
 
   call audit_log('Instance Scheduler scan finished', '')
@@ -1102,3 +1115,21 @@ define get_server_access_link($instance_href) return $server_access_link_root do
    $account = rs_cm.get(href: "/api/accounts/" + $account_number)
    $shard_number = last(split(select($account[0]["links"], {"rel":"cluster"})[0]["href"],"/"))
  end
+ 
+define get_stopping_instance_state($href) return $state do
+  $state = ""
+  @instance = rs_cm.instance.empty()
+  sub on_error: skip do
+    @instance = rs_cm.get(href: $href)
+    if (@instance.state =~ /^(running|operational|stranded)$/)
+      if @instance.locked
+        $state = join([@instance.state, " - locked"])
+      else
+        $state = join(["Unstoppable - ", @instance.state])
+      end
+    else
+      $state = @instance.state
+    end
+  end
+  call audit_log('> ' + @instance.name + ': Stopping ...', to_s(@instance) + ", state: " + $state)
+end
