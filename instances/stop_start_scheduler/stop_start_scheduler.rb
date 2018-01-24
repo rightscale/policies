@@ -1123,12 +1123,12 @@ define get_stopping_instance_state($href) return $state do
     @instance = rs_cm.get(href: $href)
     if (@instance.state =~ /^(running|operational|stranded)$/)
       if @instance.locked
-        $state = join([@instance.state, " - locked"])
+        $state = "Unstoppable(locked)"
       else
-        $state = join(["Unstoppable - ", @instance.state])
+        $state = "Unstoppable(other)"
       end
     else
-      $state = @instance.state
+      $state = "Stopped"
     end
   end
   call audit_log('> ' + @instance.name + ': Stopping ...', to_s(@instance) + ", state: " + $state)
