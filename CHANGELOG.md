@@ -1,5 +1,32 @@
 # Change Log
 
+## [Week-of-01-22-2018](https://github.com/rightscale/policies/tree/Week-of-01-22-2018) (2018-01-24)
+[Full Changelog](https://github.com/rightscale/policies/compare/Week-of-01-15-2018...Week-of-01-22-2018)
+
+**Implemented enhancements:**
+
+- Tag Checker Policy: Add "Delete Resource" option if missing tags [\#43](https://github.com/rightscale/policies/issues/43)
+- Tag Checker Policy: Extend Tag Checker to support Volume resources [\#40](https://github.com/rightscale/policies/issues/40)
+- Policy Library: create a policies cat package that enables a universal email definitions and common parameters  for all policy cats [\#29](https://github.com/rightscale/policies/issues/29)
+
+**Fixed bugs:**
+
+- Start/Stop Scheduler: Exclude non stoppable instances and put error in desc [\#11](https://github.com/rightscale/policies/issues/11)
+
+**Closed issues:**
+
+- Tag\_Checker\_Policy: Error on add\_delete\_date\_tag [\#63](https://github.com/rightscale/policies/issues/63)
+
+**Merged pull requests:**
+
+- Stop/Start Scheduler Policy: updating to ignore locked servers and eph store [\#67](https://github.com/rightscale/policies/pull/67) ([rshade](https://github.com/rshade))
+- Stop/Start Scheduler: Updating email template location [\#66](https://github.com/rightscale/policies/pull/66) ([cdwilhelm](https://github.com/cdwilhelm))
+- Tag Checker Policy: readme update [\#65](https://github.com/rightscale/policies/pull/65) ([rshade](https://github.com/rshade))
+- Stop/Start Scheduler Policy: Initial Release [\#64](https://github.com/rightscale/policies/pull/64) ([cdwilhelm](https://github.com/cdwilhelm))
+- Tag Checker Policy: Apply tag policy to Volumes [\#62](https://github.com/rightscale/policies/pull/62) ([cdwilhelm](https://github.com/cdwilhelm))
+- Tag Checker Policy: Attach CSV File [\#61](https://github.com/rightscale/policies/pull/61) ([rshade](https://github.com/rshade))
+- Tag Checker Policy: Add Delete Resource parameter option if tags missing [\#56](https://github.com/rightscale/policies/pull/56) ([cdwilhelm](https://github.com/cdwilhelm))
+
 ## [Week-of-01-15-2018](https://github.com/rightscale/policies/tree/Week-of-01-15-2018) (2018-01-18)
 [Full Changelog](https://github.com/rightscale/policies/compare/Week-of-12-07-2017...Week-of-01-15-2018)
 
