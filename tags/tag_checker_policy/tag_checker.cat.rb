@@ -166,35 +166,35 @@ define tag_checker() return $bad_instances do
 
   # for testing.  change the deployment_href to one that includes a few servers
   # to test with.  uncomment code and comment the concurrent block below it.
-  # $deployment_href =  '/api/deployments/378563001' # replace with your deployment here
-  # @instances = rs_cm.instances.get(filter: ["state==operational","deployment_href=="+$deployment_href])
-  # $operational_instances_hrefs = to_object(@instances)["hrefs"]
-  # @volumes = rs_cm.volumes.get(filter: ["deployment_href=="+$deployment_href])
-  # $volume_hrefs = to_object(@volumes)["hrefs"]
-  # $instances_hrefs = $operational_instances_hrefs + $volume_hrefs
+   $deployment_href =  '/api/deployments/378563001' # replace with your deployment here
+   @instances = rs_cm.instances.get(filter: ["state==operational","deployment_href=="+$deployment_href])
+   $operational_instances_hrefs = to_object(@instances)["hrefs"]
+   @volumes = rs_cm.volumes.get(filter: ["deployment_href=="+$deployment_href])
+   $volume_hrefs = to_object(@volumes)["hrefs"]
+   $instances_hrefs = $operational_instances_hrefs + $volume_hrefs
 
-  concurrent return $operational_instances_hrefs, $provisioned_instances_hrefs, $running_instances_hrefs, $volume_hrefs do
-    sub do
-      @instances_operational = rs_cm.instances.get(filter: ["state==operational"])
-      $operational_instances_hrefs = to_object(@instances_operational)["hrefs"]
-    end
-    sub do
-      @instances_provisioned = rs_cm.instances.get(filter: ["state==provisioned"])
-      $provisioned_instances_hrefs = to_object(@instances_provisioned)["hrefs"]
-    end
-    sub do
-      @instances_running = rs_cm.instances.get(filter: ["state==running"])
-      $running_instances_hrefs = to_object(@instances_running)["hrefs"]
-    end
-    sub do
-      @volumes = rs_cm.volumes.get()
-      $volume_hrefs = to_object(@volumes)["hrefs"]
-    end
-  end
+  # concurrent return $operational_instances_hrefs, $provisioned_instances_hrefs, $running_instances_hrefs, $volume_hrefs do
+  #   sub do
+  #     @instances_operational = rs_cm.instances.get(filter: ["state==operational"])
+  #     $operational_instances_hrefs = to_object(@instances_operational)["hrefs"]
+  #   end
+  #   sub do
+  #     @instances_provisioned = rs_cm.instances.get(filter: ["state==provisioned"])
+  #     $provisioned_instances_hrefs = to_object(@instances_provisioned)["hrefs"]
+  #   end
+  #   sub do
+  #     @instances_running = rs_cm.instances.get(filter: ["state==running"])
+  #     $running_instances_hrefs = to_object(@instances_running)["hrefs"]
+  #   end
+  #   sub do
+  #     @volumes = rs_cm.volumes.get()
+  #     $volume_hrefs = to_object(@volumes)["hrefs"]
+  #   end
+  # end
+  #
+  # $instances_hrefs = $operational_instances_hrefs + $provisioned_instances_hrefs + $running_instances_hrefs + $volume_hrefs
 
-  $instances_hrefs = $operational_instances_hrefs + $provisioned_instances_hrefs + $running_instances_hrefs + $volume_hrefs
-
-  $$bad_instances_array=[]
+  $$bad_instances_array={}
   $$add_tags_hash = {}
   $$add_prefix_value = {}
   foreach $hrefs in $instances_hrefs do
@@ -226,14 +226,14 @@ define tag_checker() return $bad_instances do
   end
 
 
-  $bad_instances = to_s(unique($$bad_instances_array))
+  $bad_instances = to_s(unique(keys($$bad_instances_array)))
 
   # get the users email and add to param_email
   $user_email = tag_value(@@deployment, 'selfservice:launched_by')
   $param_email = $user_email +','+$param_email
 
   # Send an alert email if there is at least one improperly tagged instance
-  if logic_not(empty?($$bad_instances_array))
+  if logic_not(empty?(keys($$bad_instances_array)))
     call send_tags_alert_email(join($param_tag_keys_array,','),$param_email)
   end
 end
@@ -277,7 +277,7 @@ define send_tags_alert_email($tags,$to) do
   # Build email
   $subject = "Tag Checker Policy: "
   $from = "policy-cat@services.rightscale.com"
-  $email_msg = "RightScale discovered that the following resources are missing tags <b>" + $tags + "</b> in <b>"+ $account_name +".</b> Per the policy set by your organization, these resources are not compliant"
+  $email_msg = "RightScale discovered that the following resources are missing tags <b>" + $tags + "</b> in <b>"+ $account_name +".</b> Per the policy set by your organization, these resources are not compliant.  View the attached CSV file for more details."
 
   $table_start="<td align=%22left%22 valign=%22top%22>"
   $table_end="</td>"
@@ -343,47 +343,47 @@ define send_tags_alert_email($tags,$to) do
     </body>
   </html>"
 
-  $columns = ["Instance Name", "State", "Link"]
+  $columns = ["Cloud Type","Cloud","Resource UID","Resource Name","Created","Missing Tags","Invalid values","Delete Date", "State", "Link"]
   call mailer.create_csv_with_columns($endpoint,$columns) retrieve $filename
   $$csv_filename = $filename
 
   $$list_of_instances=""
-  foreach $instance in unique($$bad_instances_array) do
-    $$instance_error = 'false'
-    @server = rs_cm.servers.empty()
+  foreach $resource in unique(keys($$bad_instances_array)) do
+    $$resource_error = 'false'
+    @resource = rs_cm.servers.empty()
 
     sub on_error: set_instance_error() do
-      @server = rs_cm.get(href: $instance)
+      @resource = rs_cm.get(href: $resource)
     end
 
-    $server_object = to_object(@server)
+    $resource_object = to_object(@resource)
 
-    if $$instance_error == 'true'
+    if $$resource_error == 'true'
       #issue with the instance, may no longer exists
     else
       # Get resource name
         # try for the instance name first, then get resource_uid
-      $instance_name = $server_object["details"][0]["name"]
-      if !$instance_name
-        $instance_name = $server_object["details"][0]["resource_uid"]
+      $resource_name = $resource_object["details"][0]["name"]
+      if !$resource_name
+        $resource_name = $resource_object["details"][0]["resource_uid"]
       end
 
-      if $instance_name == null
-        $instance_name = 'unknown'
+      if $resource_name == null
+        $resource_name = 'unknown'
       end
 
       # Get resource state/status
-      if $server_object['type'] == 'instances'
-        if $server_object["details"][0]["state"] == null
-          $instance_state = 'unknown'
+      if $resource_object['type'] == 'instances'
+        if $resource_object["details"][0]["state"] == null
+          $resource_state = 'unknown'
         else
-          $instance_state = $server_object["details"][0]["state"]
+          $resource_state = $resource_object["details"][0]["state"]
         end
-      elsif $server_object['type'] == 'volumes'
-        if $server_object["details"][0]["status"] == null
-          $instance_state = 'unknown'
+      elsif $resource_object['type'] == 'volumes'
+        if $resource_object["details"][0]["status"] == null
+          $resource_state = 'unknown'
         else
-          $instance_state = $server_object["details"][0]["status"]
+          $resource_state = $resource_object["details"][0]["status"]
         end
       end
 
@@ -391,15 +391,20 @@ define send_tags_alert_email($tags,$to) do
       # Get server access link
       $server_access_link_root = 'unknown'
       sub on_error: skip do
-        call get_server_access_link($instance, $server_object['type']) retrieve $server_access_link_root
+        call get_server_access_link($resource, $resource_object['type']) retrieve $server_access_link_root
       end
       if $server_access_link_root == null
         $server_access_link_root = 'unknown'
       end
 
+      $resource_date = strftime(to_d(@resource.created_at),"%Y-%m-%d")
+      $missing = join($$bad_instances_array[@resource.href]['missing'],',')
+      $invalid = ''#$$bad_instances_array[@resource.href]['invalid']
+      $delete_date = ''#$$bad_instances_array[@resource.href]['delete_date']
       # Create the instance table
-      call mailer.update_csv_with_rows($endpoint, $filename, [$instance_name, $instance_state, $server_access_link_root]) retrieve $filename
-      $instance_table = "<tr>" + $table_start + $instance_name + $table_end + $table_start + $instance_state + $table_end + $table_start + $server_access_link_root + $table_end + "</tr>"
+      #["Cloud","Resource UID","Resource Name","Created","Missing Tags","Invalid values","Delete Date", "State", "Link"]
+      call mailer.update_csv_with_rows($endpoint, $filename, [@resource.cloud().cloud_type, @resource.cloud().name, @resource.resource_uid,$resource_name,$resource_date,$missing,$invalid,$delete_date, $resource_state, $server_access_link_root]) retrieve $filename
+      $instance_table = "<tr>" + $table_start + $resource_name + $table_end + $table_start + $resource_state + $table_end + $table_start + $server_access_link_root + $table_end + "</tr>"
       insert($$list_of_instances, -1, $instance_table)
     end
   end
@@ -413,7 +418,7 @@ define send_tags_alert_email($tags,$to) do
 end
 
 define set_instance_error() do
-  $$instance_error = 'true'
+  $$resource_error = 'true'
   $_error_behavior = "skip"
 end
 
@@ -459,6 +464,7 @@ define check_tag_key($tag_info_array,$param_tag_keys_array,$advanced_tags) do
   $resource_array=[]
   $advanced_tags_keys = keys($advanced_tags)
   $default_value_keys = []
+  $missing_tag_array = []
   foreach $key in $advanced_tags_keys do
     if $advanced_tags[$key]['default-value']
       $default_value_keys << $key
@@ -489,8 +495,13 @@ define check_tag_key($tag_info_array,$param_tag_keys_array,$advanced_tags) do
 
     # See if the desired keys are in the found tags and if not take note of the improperly tagged instances
     if logic_not(contains?($tag_entry_ns_key_array, $param_tag_keys_array))
-      foreach $resource in $tag_info_hash["links"] do
-        $$bad_instances_array << $resource["href"]
+       foreach $required_tag in $param_tag_keys_array do
+         if !contains?($tag_entry_ns_key_array,[$required_tag])
+           $missing_tag_array << $required_tag
+         end
+       end
+        foreach $resource in $tag_info_hash["links"] do
+          $$bad_instances_array[$resource["href"]]={missing: $missing_tag_array}
       end
     end
   end
@@ -600,7 +611,7 @@ define add_delete_date_tag($delete_days) do
   $delete_date = to_d(to_n(strftime(now(),'%s')) + (86400 * to_n($delete_days)))
   $formated_delete_date = strftime($delete_date,'%F')
   # get list of resource and and missing tags.
-  foreach $resource in unique($$bad_instances_array) do
+  foreach $resource in unique(keys($$bad_instances_array)) do
     # make a map of resources by cloud to add tags
     # skip if rs_policy:delete_date tag exists.  we don't want to update the tag
     sub on_error: skip do
@@ -632,7 +643,7 @@ define remove_delete_date_tag() do
     resource_type: 'instances')
   $resources = first(first($resources))["links"]
   foreach $resource in $resources do
-    if !contains?(unique($$bad_instances_array),[$resource['href']])
+    if !contains?(unique(keys($$bad_instances_array)),[$resource['href']])
       	@resource = rs_cm.instances.get(href: $resource['href'])
         rs_cm.tags.multi_delete(resource_hrefs: [@resource.href],
         tags: ["rs_policy:delete_date="+tag_value(@resource,'rs_policy:delete_date')])
