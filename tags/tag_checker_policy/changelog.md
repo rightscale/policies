@@ -1,5 +1,8 @@
 Tag Checker Policy changelog
 
+v2.1
+- adding additonal colums to the CSV file attached to email.
+
 v2.0
 ----
 - converting from mailgun to policies_mailer
