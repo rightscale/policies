@@ -1,5 +1,16 @@
 # Change Log
 
+## [Week-of-01-29-2018](https://github.com/rightscale/policies/tree/Week-of-01-29-2018) (2018-02-01)
+[Full Changelog](https://github.com/rightscale/policies/compare/Week-of-01-22-2018...Week-of-01-29-2018)
+
+**Implemented enhancements:**
+
+- Tag Checker Policy: Enhance Email Fields [\#46](https://github.com/rightscale/policies/issues/46)
+
+**Merged pull requests:**
+
+- Tag Checker: Adding additional columns to CSV File [\#70](https://github.com/rightscale/policies/pull/70) ([cdwilhelm](https://github.com/cdwilhelm))
+
 ## [Week-of-01-22-2018](https://github.com/rightscale/policies/tree/Week-of-01-22-2018) (2018-01-24)
 [Full Changelog](https://github.com/rightscale/policies/compare/Week-of-01-15-2018...Week-of-01-22-2018)
 
@@ -21,7 +32,6 @@
 
 - Stop/Start Scheduler Policy: updating to ignore locked servers and eph store [\#67](https://github.com/rightscale/policies/pull/67) ([rshade](https://github.com/rshade))
 - Stop/Start Scheduler: Updating email template location [\#66](https://github.com/rightscale/policies/pull/66) ([cdwilhelm](https://github.com/cdwilhelm))
-- Tag Checker Policy: readme update [\#65](https://github.com/rightscale/policies/pull/65) ([rshade](https://github.com/rshade))
 - Stop/Start Scheduler Policy: Initial Release [\#64](https://github.com/rightscale/policies/pull/64) ([cdwilhelm](https://github.com/cdwilhelm))
 - Tag Checker Policy: Apply tag policy to Volumes [\#62](https://github.com/rightscale/policies/pull/62) ([cdwilhelm](https://github.com/cdwilhelm))
 - Tag Checker Policy: Attach CSV File [\#61](https://github.com/rightscale/policies/pull/61) ([rshade](https://github.com/rshade))
