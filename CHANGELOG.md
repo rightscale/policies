@@ -1,5 +1,20 @@
 # Change Log
 
+## [Unreleased](https://github.com/rightscale/policies/tree/HEAD)
+
+[Full Changelog](https://github.com/rightscale/policies/compare/Week-of-01-29-2018...HEAD)
+
+**Implemented enhancements:**
+
+- Tag Checker Policy: Enhance Email Fields [\#46](https://github.com/rightscale/policies/issues/46)
+
+## [Week-of-01-29-2018](https://github.com/rightscale/policies/tree/Week-of-01-29-2018) (2018-01-30)
+[Full Changelog](https://github.com/rightscale/policies/compare/Week-of-01-22-2018...Week-of-01-29-2018)
+
+**Merged pull requests:**
+
+- Tag Checker: Adding additional columns to CSV File [\#70](https://github.com/rightscale/policies/pull/70) ([cdwilhelm](https://github.com/cdwilhelm))
+
 ## [Week-of-01-22-2018](https://github.com/rightscale/policies/tree/Week-of-01-22-2018) (2018-01-24)
 [Full Changelog](https://github.com/rightscale/policies/compare/Week-of-01-15-2018...Week-of-01-22-2018)
 
@@ -42,10 +57,13 @@
 
 **Merged pull requests:**
 
+- Update Issue Template [\#59](https://github.com/rightscale/policies/pull/59) ([dfrankel33](https://github.com/dfrankel33))
 - Tag Checker Policy: use resource name in report if it's available [\#57](https://github.com/rightscale/policies/pull/57) ([cdwilhelm](https://github.com/cdwilhelm))
 - Tag Checker - Allow the user to provide a prefix value for invalid tags values [\#55](https://github.com/rightscale/policies/pull/55) ([cdwilhelm](https://github.com/cdwilhelm))
 - Tag Checker - update advanced tags to create missing tag [\#54](https://github.com/rightscale/policies/pull/54) ([cdwilhelm](https://github.com/cdwilhelm))
 - Tag Checker - adding advanced tag matching [\#51](https://github.com/rightscale/policies/pull/51) ([cdwilhelm](https://github.com/cdwilhelm))
+- Update README.md [\#50](https://github.com/rightscale/policies/pull/50) ([donaldgheen](https://github.com/donaldgheen))
+- Add files via upload [\#49](https://github.com/rightscale/policies/pull/49) ([donaldgheen](https://github.com/donaldgheen))
 
 ## [Week-of-12-07-2017](https://github.com/rightscale/policies/tree/Week-of-12-07-2017) (2017-12-07)
 [Full Changelog](https://github.com/rightscale/policies/compare/Week-of-11-20-2017...Week-of-12-07-2017)
@@ -60,6 +78,11 @@
 **Fixed bugs:**
 
 - Tag Checker Policy: Policy tag checker runs very long and abort when there are many resources and tags [\#31](https://github.com/rightscale/policies/issues/31)
+
+**Closed issues:**
+
+- notification test [\#35](https://github.com/rightscale/policies/issues/35)
+- test [\#33](https://github.com/rightscale/policies/issues/33)
 
 **Merged pull requests:**
 
@@ -77,6 +100,8 @@
 - Long Running Instances - Bug Fixes [\#30](https://github.com/rightscale/policies/pull/30) ([rshade](https://github.com/rshade))
 - Unencrypted Volume Checker - Initial Release [\#27](https://github.com/rightscale/policies/pull/27) ([stefhen](https://github.com/stefhen))
 - Tag Checker - Fix null returns for instance details [\#26](https://github.com/rightscale/policies/pull/26) ([srpomeroy](https://github.com/srpomeroy))
+- PS-447: fix readmes [\#16](https://github.com/rightscale/policies/pull/16) ([stefhen](https://github.com/stefhen))
+- PS-447 Reorganize CAT layout [\#15](https://github.com/rightscale/policies/pull/15) ([stefhen](https://github.com/stefhen))
 - Fastly Security Group Rules Policy - Initial Release [\#14](https://github.com/rightscale/policies/pull/14) ([bryankaraffa](https://github.com/bryankaraffa))
 - AWS Volume Tag Sync Policy - Initial Release [\#13](https://github.com/rightscale/policies/pull/13) ([rgeyer](https://github.com/rgeyer))
 - Quench Alerts Policy - Initial Release [\#12](https://github.com/rightscale/policies/pull/12) ([bryankaraffa](https://github.com/bryankaraffa))
