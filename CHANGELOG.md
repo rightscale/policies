@@ -1,15 +1,11 @@
 # Change Log
 
-## [Unreleased](https://github.com/rightscale/policies/tree/HEAD)
-
-[Full Changelog](https://github.com/rightscale/policies/compare/Week-of-01-29-2018...HEAD)
+## [Week-of-01-29-2018](https://github.com/rightscale/policies/tree/Week-of-01-29-2018) (2018-02-01)
+[Full Changelog](https://github.com/rightscale/policies/compare/Week-of-01-22-2018...Week-of-01-29-2018)
 
 **Implemented enhancements:**
 
 - Tag Checker Policy: Enhance Email Fields [\#46](https://github.com/rightscale/policies/issues/46)
-
-## [Week-of-01-29-2018](https://github.com/rightscale/policies/tree/Week-of-01-29-2018) (2018-01-30)
-[Full Changelog](https://github.com/rightscale/policies/compare/Week-of-01-22-2018...Week-of-01-29-2018)
 
 **Merged pull requests:**
 
