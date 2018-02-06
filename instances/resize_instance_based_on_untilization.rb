@@ -1,4 +1,4 @@
-name "RightSize"	# <- Must be changed per OLC Version
+name "RightSize"
 rs_ca_ver 20161221
 short_description "Downsize instances based on cpu and memory utilization"
 
@@ -9,32 +9,29 @@ define find_rs_monitored_instances() do
       
       
       foreach @server in @all_instances do 
-        $tag = "rs_monitoring:state"
-          call has_tag(@server, $tag) retrieve $$tagged
+        $tag = "rs_monitoring:edwin"  #edwin for testing, rs_monitoring:status should be the tag
+          call has_tag(@server, $tag) retrieve $tagged
       end
-      
-     
-     
-      
     end
     
-    define has_tag(@server, $tag) return $$tagged do
+    define has_tag(@server, $tag) return $tagged do
       call get_tags_for_resource(@server) retrieve $tags_on_server
       
       $href_tag = map $current_tag in $tags_on_server return $tag do
         if $current_tag =~ $tag
-          $$tagged = "true"
+          call create_alert_spec(@server) 
+          $tagged = "true"
         end
       end
     end
     
     
-    define create_alert_spec() do
+    define create_alert_spec(@server) do
         @@alert_specs = rs_cm.alertspecs.empty() 
 
         @@hello =  rs_cm.alert_specs.create(
             alert_spec:{
-                name:         "SSH SCALE UP",
+                name:         "rightsizing_policy" + @@execution.id,
                 description:  "Triggers autoscaling if users ssh into instances",
                 file:         "users/users",
                 variable:     "users", 
@@ -42,7 +39,9 @@ define find_rs_monitored_instances() do
                 threshold:    "0",
                 duration:     "1",
                 vote_type:    "grow",
+                subject_href:  @server.current_instance().href
                 vote_tag:     "node"
+                
             }
         )
       
