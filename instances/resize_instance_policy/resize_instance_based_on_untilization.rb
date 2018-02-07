@@ -77,23 +77,25 @@ end
 #creates the alert spec 
 define create_alert_spec(@server)  do
 
-    rs_cm.alert_specs.create(
-            alert_spec:{
-                name:         "rightsizing_policy_" + @@execution.id,
-                description:  "used by the resizing policy",
-                file:         $$metric,
-                variable:     $$metric_variable, 
-                condition:    ">", 
-                threshold:    "0",
-                duration:     "1", 
-                vote_tag:      "rightsize",
-                vote_type:     "shrink",
-                subject_href:  @server.href
-                
-            
-            }
-        )
+
+  #coverted to object to insert metric info
+  @spec = rs_cm.alert_specs.empty()
+  $spec_object=to_object(@spec)
+  $spec_object["details"][0]="name=rightsizing_policy_" + @@execution.id
+  $spec_object["details"][1]="description=used by the resizing policy"
+  $spec_object["details"][2]="file=" + $$metric
+  $spec_object["details"][3]="variable=" + $$metric_variable
+  $spec_object["details"][4]="condition=>"
+  $spec_object["details"][5]="threshold=0"
+  $spec_object["details"][6]="duration=1" 
+  $spec_object["details"][7]="vote_tag=rightsize"
+  $spec_object["details"][8]="vote_type=shrink"
+  $spec_object["details"][9]=@server.href
+   
   
+
+ @server.alert_specs().create(alert_spec: { $spec_hash["details"] })
+
 end
 
     
