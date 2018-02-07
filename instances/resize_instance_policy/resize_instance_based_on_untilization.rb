@@ -12,7 +12,9 @@ parameter "param_metric" do
     category "Metric"
     label "Utilization metric to monitor"
     type "string"
-    allowed_values "CPU", "Memory"
+    allowed_values "Idel CPU", "Free Memory"
+    #cpu-0/cpu-idle.value
+    #memory/memory-free.value 
   end
 
   parameter "param_action" do
@@ -36,6 +38,10 @@ parameter "param_metric" do
   end
  
 
+##################
+# Operations     #
+##################
+
 
   operation "launch" do
     description "Find long running instances"
@@ -45,6 +51,11 @@ parameter "param_metric" do
 
 
 define launch() do 
+
+$metric_map = {
+    "CPU IDLE": "cpu-0/cpu-idle.value",
+    "MEMORY USAGE": "memory/memory-free.value"
+}
 
     @all_instances = rs_cm.instances.index(filter:["state==operational"])
       
