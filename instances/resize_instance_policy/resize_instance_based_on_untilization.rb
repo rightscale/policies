@@ -81,17 +81,7 @@ operation "add_alert_specs" do
 end
 
 define launch($param_tag,$param_metric,$alert_conditions,$param_email,$param_threshold,$param_duration,$param_action) return $param_metric do 
-  call add_alert_specs($param_tag,$param_metric,$alert_conditions,$param_email,$param_threshold,$param_duration,$param_action)
   $time = now() + (60*2)
-  rs_ss.scheduled_actions.create(
-                                  execution_id:       @@execution.id,
-                                  name:               "Checking for Servers Needing Downsize",
-                                  action:             "run",
-                                  operation:          { "name": "find_servers_needing_downsize" },
-                                  first_occurrence:   $time,
-                                  recurrence:         "FREQ=MINUTELY;INTERVAL=60"
-                                )
-  $time = now() + (60*30)
   rs_ss.scheduled_actions.create(
                                   execution_id:       @@execution.id,
                                   name:               "Adding Alert Specs",
@@ -100,6 +90,16 @@ define launch($param_tag,$param_metric,$alert_conditions,$param_email,$param_thr
                                   first_occurrence:   $time,
                                   recurrence:         "FREQ=MINUTELY;INTERVAL=30"
                                 )
+  $time = now() + (60*5)
+  rs_ss.scheduled_actions.create(
+                                  execution_id:       @@execution.id,
+                                  name:               "Checking for Servers Needing Downsize",
+                                  action:             "run",
+                                  operation:          { "name": "find_servers_needing_downsize" },
+                                  first_occurrence:   $time,
+                                  recurrence:         "FREQ=MINUTELY;INTERVAL=60"
+                                )
+
 end
 
 define add_alert_specs($param_tag,$param_metric,$alert_conditions,$param_email,$param_threshold,$param_duration,$param_action) do
@@ -148,10 +148,11 @@ define find_servers_needing_downsize($param_email,$param_action,$param_metric,$a
   call find_shard() retrieve $$shard
   $endpoint = "http://policies.services.rightscale.com"
   call get_resource_by_tag('instances', ["rs_vote:rightsize=shrink"]) retrieve @resources
-  call mailer.create_csv_with_columns($endpoint,["Account Name","Instance Name","Status","link"] ) retrieve $filename
+  call mailer.create_csv_with_columns($endpoint,["Account Name","Instance Name","Original Size","New Size","Status","link"] ) retrieve $filename
   $$csv_filename = $filename
   $shrink_count = size(@resources)
   foreach @resource in @resources do
+    $old_size = @resource.instance_type().name
     # Get server access link
     $server_access_link_root = 'unknown'
     sub on_error: skip do
@@ -166,7 +167,8 @@ define find_servers_needing_downsize($param_email,$param_action,$param_metric,$a
     else
       $status = @resource.state
     end
-    call mailer.update_csv_with_rows($endpoint, $filename, [$account_name,@resource.name,$status,$server_access_link_root]) retrieve $filename
+    
+    call mailer.update_csv_with_rows($endpoint, $filename, [$account_name,@resource.name,$old_size,@resource.instance_type().name,$status,$server_access_link_root]) retrieve $filename
   end
   $body = join(["We found ", $shrink_count, " instances that can be resized"])
   call mailer.send_html_email($endpoint, $param_email,"policy-cat@services.rightscale.com", "Resize Instances Report", $body, $filename, "text") retrieve $response
