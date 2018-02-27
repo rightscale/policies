@@ -13,7 +13,7 @@ parameter "param_tag" do
   category "Tag"
   label "Tag to Check"
   type "string"
-  default "rs_monitoring:resize=1"
+  #default "rs_monitoring:resize=1"
 end
 
 parameter "param_metric" do
@@ -40,9 +40,9 @@ end
 
 parameter "cpu_param_duration" do
   category "Configuration"
-  label "CPU Metric Threshold Duration"
+  label "CPU Metric Threshold Duration, 0 will disable this metric"
   type "number"
-  default "1"
+  default "0"
 end
 
 parameter "mem_param_threshold" do
@@ -54,9 +54,9 @@ end
 
 parameter "mem_param_duration" do
   category "Configuration"
-  label "Memory Metric Threshold Duration"
+  label "Memory Metric Threshold Duration, 0 will disable this metric"
   type "number"
-  default "1"
+  default "0"
 end
 
 parameter "param_email" do
@@ -135,7 +135,7 @@ define create_alert_spec(@server,$cpu_param_duration,$cpu_param_threshold,$mem_p
   end
   call sys_log.set_task_target(@@deployment)
   call sys_log.summary("Alert Spec:" + $server_access_link_root)
-  if !contains?(@server.alert_specs().name[], ["rightsizing_policy_cpu-0_cpu-idle"])
+  if !contains?(@server.alert_specs().name[], ["rightsizing_policy_cpu-0_cpu-idle"]) || ($cpu_param_duration == 0)
   #coverted to object to insert metric info
     @spec = { 
       "namespace": "rs_cm",
@@ -162,7 +162,7 @@ define create_alert_spec(@server,$cpu_param_duration,$cpu_param_threshold,$mem_p
   else
     call sys_log.detail(join(["Instance: ", @server.name, " already has alert spec: rightsizing_policy_cpu-0_cpu-idle"]))
   end
-  if !contains?(@server.alert_specs().name[], ["rightsizing_policy_memory_memory-free"])
+  if !contains?(@server.alert_specs().name[], ["rightsizing_policy_memory_memory-free"]) || ($mem_param_duration == 0)
   #coverted to object to insert metric info
     @spec = { 
       "namespace": "rs_cm",
