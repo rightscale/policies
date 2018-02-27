@@ -31,16 +31,30 @@ parameter "param_action" do
   default "Report Only"
 end
 
-parameter "param_threshold" do
+parameter "cpu_param_threshold" do
   category "Configuration"
-  label "Metric Threshold Percentage"
+  label "CPU Metric Threshold Percentage"
   type "number"
   default "0"
 end
 
-parameter "param_duration" do
+parameter "cpu_param_duration" do
   category "Configuration"
-  label "Metric Threshold Duration"
+  label "CPU Metric Threshold Duration"
+  type "number"
+  default "1"
+end
+
+parameter "mem_param_threshold" do
+  category "Configuration"
+  label "Memory Metric Threshold Percentage"
+  type "number"
+  default "0"
+end
+
+parameter "mem_param_duration" do
+  category "Configuration"
+  label "Memory Metric Threshold Duration"
   type "number"
   default "1"
 end
@@ -80,7 +94,7 @@ operation "add_alert_specs" do
   description "Adds Alert Specs to Servers"
 end
 
-define launch($param_tag,$param_metric,$alert_conditions,$param_email,$param_threshold,$param_duration,$param_action) return $param_metric do 
+define launch($param_tag,$param_email,$param_action,$cpu_param_duration,$cpu_param_threshold,$mem_param_duration,$mem_param_threshold) return $cpu_param_duration,$cpu_param_threshold,$mem_param_duration,$mem_param_threshold do 
   $time = now() + (60*2)
   rs_ss.scheduled_actions.create(
                                   execution_id:       @@execution.id,
@@ -102,31 +116,66 @@ define launch($param_tag,$param_metric,$alert_conditions,$param_email,$param_thr
 
 end
 
-define add_alert_specs($param_tag,$param_metric,$alert_conditions,$param_email,$param_threshold,$param_duration,$param_action) do
+define add_alert_specs($param_tag,$param_email,$param_action,$cpu_param_duration,$cpu_param_threshold,$mem_param_duration,$mem_param_threshold) do
   call get_resource_by_tag('instances',["rs_monitoring:util=v2",$param_tag]) retrieve @resources
   foreach @resource in @resources do
-    call create_alert_spec(@resource,$param_metric,$alert_conditions,$param_threshold,$param_duration)
+    call create_alert_spec(@resource,$cpu_param_duration,$cpu_param_threshold,$mem_param_duration,$mem_param_threshold)
   end
 end
 
 #creates the alert spec 
-define create_alert_spec(@server,$param_metric,$alert_conditions,$param_threshold,$param_duration)  do
+define create_alert_spec(@server,$cpu_param_duration,$cpu_param_threshold,$mem_param_duration,$mem_param_threshold)  do
+  call find_account_name() retrieve $account_name
+  call find_account_number() retrieve $$account_number
+  call find_shard() retrieve $$shard
+  $server_access_link_root = 'unknown'
+  call get_server_access_link(@server.href, 'instances') retrieve $server_access_link_root
+  if $server_access_link_root == null
+    $server_access_link_root = 'unknown'
+  end
   call sys_log.set_task_target(@@deployment)
-  call sys_log.summary("Alert Spec")
-  if !contains?(@server.alert_specs().name[], [join(["rightsizing_policy_",$param_metric])])
+  call sys_log.summary("Alert Spec:" + $server_access_link_root)
+  if !contains?(@server.alert_specs().name[], ["rightsizing_policy_cpu-0_cpu-idle"])
   #coverted to object to insert metric info
     @spec = { 
       "namespace": "rs_cm",
       "type": "alert_specs",
       "fields": {
-        "name": join(["rightsizing_policy_",$param_metric]),
+        "name": "rightsizing_policy_cpu-0_cpu-idle",
         "description": "used by the resizing policy",
-        "file": map($alert_conditions, $param_metric, "file"),
-        "variable": map($alert_conditions, $param_metric, "variable"),
+        "file": "cpu-0/cpu-idle",
+        "variable": "value",
         "condition": ">",
-        "threshold": $param_threshold,
-        "duration": $param_duration,
-        "vote_tag": "rightsize",
+        "threshold": $cpu_param_threshold,
+        "duration": $cpu_param_duration,
+        "vote_tag": "rightsize_cpu-0_cpu-idle",
+        "vote_type": "shrink",
+        "subject_href": @server.href
+      }
+    }
+    call start_debugging()
+    call sys_log.detail("Alert_Spec:" + to_s(to_object(@spec)))
+    sub on_error: stop_debugging() do
+      provision(@spec)
+    end
+    call stop_debugging()
+  else
+    call sys_log.detail(join(["Instance: ", @server.name, " already has alert spec: rightsizing_policy_cpu-0_cpu-idle"]))
+  end
+  if !contains?(@server.alert_specs().name[], ["rightsizing_policy_memory_memory-free"])
+  #coverted to object to insert metric info
+    @spec = { 
+      "namespace": "rs_cm",
+      "type": "alert_specs",
+      "fields": {
+        "name": "rightsizing_policy_memory_memory-free",
+        "description": "used by the resizing policy",
+        "file": "memory/memory-free",
+        "variable": "value",
+        "condition": ">",
+        "threshold": $mem_param_threshold,
+        "duration": $mem_param_duration,
+        "vote_tag": "rightsize_memory_memory-free",
         "vote_type": "shrink",
         "subject_href": @server.href
       }
@@ -142,12 +191,12 @@ define create_alert_spec(@server,$param_metric,$alert_conditions,$param_threshol
   end
 end
 
-define find_servers_needing_downsize($param_email,$param_action,$param_metric,$alert_conditions,$param_threshold,$param_duration) do
+define find_servers_needing_downsize($param_email,$param_action,$cpu_param_duration,$cpu_param_threshold,$mem_param_duration,$mem_param_threshold) do
   call find_account_name() retrieve $account_name
   call find_account_number() retrieve $$account_number
   call find_shard() retrieve $$shard
   $endpoint = "http://policies.services.rightscale.com"
-  call get_resource_by_tag('instances', ["rs_vote:rightsize=shrink"]) retrieve @resources
+  call get_resource_by_tag('instances', ["rs_vote:rightsize_memory_memory-free=shrink","rs_vote:rightsize_cpu-0_cpu-idle=shrink"]) retrieve @resources
   call mailer.create_csv_with_columns($endpoint,["Account Name","Instance Name","Original Size","New Size","Status","link"] ) retrieve $filename
   $$csv_filename = $filename
   $shrink_count = size(@resources)
@@ -162,7 +211,7 @@ define find_servers_needing_downsize($param_email,$param_action,$param_metric,$a
       $server_access_link_root = 'unknown'
     end
     if $param_action == "Report and Resize"
-      call resize_by_instance_family(@resource,"down",$param_metric,$alert_conditions,$param_threshold,$param_duration) retrieve $status,@new_resource
+      call resize_by_instance_family(@resource,"down",$cpu_param_duration,$cpu_param_threshold,$mem_param_duration,$mem_param_threshold) retrieve $status,@new_resource
       @resource = @new_resource
     else
       $status = @resource.state
@@ -241,7 +290,17 @@ define get_resource_by_tag($resource_type, $tags) return @resources do
   end
 end
 
-define resize_by_instance_family(@instance,$resize_operation,$param_metric,$alert_conditions,$param_threshold,$param_duration) return $status,@new_resource do
+define resize_log(@instance, $message) do
+  call sys_log.set_task_target(@@deployment)
+  call sys_log.summary(join(["resizing instance: ", @instance.name]))
+  call sys_log.detail($message)
+  call sys_log.set_task_target(@instance)
+  call sys_log.detail($message)
+  call sys_log.set_task_target(@instance.deployment())
+  call sys_log.detail($message)
+end
+
+define resize_by_instance_family(@instance,$resize_operation,$cpu_param_duration,$cpu_param_threshold,$mem_param_duration,$mem_param_threshold) return $status,@new_resource do
   call sys_log.set_task_target(@@deployment)
   call sys_log.summary(join(["resizing instance: ", @instance.name]))
   task_label(join(["resizing instance: ", @instance.name]))
@@ -249,6 +308,9 @@ define resize_by_instance_family(@instance,$resize_operation,$param_metric,$aler
   if $new_size != null
     task_label(join(["resizing instance: ", @instance.name, " to the new size: ", $new_size]))
     call sys_log.detail(join(["resizing instance: ", @instance.name, " to the new size: ", $new_size]))
+    call sys_log.set_task_target(@instance)
+    call sys_log.detail(join(["resizing instance: ", @instance.name, " to the new size: ", $new_size]))
+    call sys_log.set_task_target(@@deployment)
     @current_server = @instance.parent()
     task_label("stopping instance")
     @instance.stop()
@@ -264,7 +326,7 @@ define resize_by_instance_family(@instance,$resize_operation,$param_metric,$aler
     task_label("sleeping until instance started")
     sleep_until(@current_instance.state == 'operational')
     call sys_log.detail("instance started")
-    call create_alert_spec(@current_instance,$param_metric,$alert_conditions,$param_threshold,$param_duration)
+    call create_alert_spec(@current_instance,$cpu_param_duration,$cpu_param_threshold,$mem_param_duration,$mem_param_threshold)
     $status = join(["Server: ", @current_server.name, " Size: ", $new_size, " State: ", @current_instance.state])
     call sys_log.detail($status)
     @new_resource = @current_instance

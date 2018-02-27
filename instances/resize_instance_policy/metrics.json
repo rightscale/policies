@@ -1,0 +1,6 @@
+{
+  "spec": [
+    { "file": "cpu-0/cpu-idle", "variable": "value", "duration": 1, "threshold": 0 },
+    { "file": "memory/memory-free", "variable": "value", "duration": 1, "threshold": 0 }
+  ]
+}
