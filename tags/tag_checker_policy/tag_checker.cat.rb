@@ -121,6 +121,7 @@ define launch_tag_checker($param_tag_key,$param_advanced_tag_key,$param_email,$p
 
   call tag_checker() retrieve $bad_instances
 
+
   if $param_run_once == "true"
     $time = now() + 30
     rs_ss.scheduled_actions.create(
@@ -138,8 +139,10 @@ define tag_checker() return $bad_instances do
   $advanced_tag_keys = {}
   $advanced_tags = {}
   $delete_days = 0
-  # retrieve tags on current deployment
+  # retrieve tags on current deployment  
+  # don't think this deployment has any tags we need, as it's the cloudapp  - EG
   call get_tags_for_resource(@@deployment) retrieve $tags_on_deployment
+  call sys_log(@@execution.name, 'Tag Checker Status: Started')
 
   $href_tag = map $current_tag in $tags_on_deployment return $tag do
     if $current_tag =~ "(tagchecker:tag_key)"
@@ -164,6 +167,8 @@ define tag_checker() return $bad_instances do
     $param_tag_keys_array << $key
   end
 
+  call sys_log(@@execution.name, join(["Tag Checker Tag Key Array:", $param_tag_keys_array]) )
+
   # for testing.  change the deployment_href to one that includes a few servers
   # to test with.  uncomment code and comment the concurrent block below it.
   #  $deployment_href =  '/api/deployments/378563001' # replace with your deployment here
@@ -177,18 +182,24 @@ define tag_checker() return $bad_instances do
     sub do
       @instances_operational = rs_cm.instances.get(filter: ["state==operational"])
       $operational_instances_hrefs = to_object(@instances_operational)["hrefs"]
+      call sys_log(@@execution.name, join(["Operational Instances:", $operational_instances_hrefs]) )
+
+      #call sys_log(@@execution.name, 'Operational Instances: ' + $operational_instances_hrefs)
     end
     sub do
       @instances_provisioned = rs_cm.instances.get(filter: ["state==provisioned"])
       $provisioned_instances_hrefs = to_object(@instances_provisioned)["hrefs"]
+      call sys_log(@@execution.name, join(["Provisioned Instances:", $provisioned_instances_hrefs]) )
     end
     sub do
       @instances_running = rs_cm.instances.get(filter: ["state==running"])
       $running_instances_hrefs = to_object(@instances_running)["hrefs"]
+      call sys_log(@@execution.name, join(["Running Instances:", $running_instances_hrefs]) )
     end
     sub do
       @volumes = rs_cm.volumes.get()
       $volume_hrefs = to_object(@volumes)["hrefs"]
+     # call sys_log(@@execution.name, 'Volumes: ' + $volume_hrefs)
     end
   end
 
