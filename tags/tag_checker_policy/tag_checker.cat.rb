@@ -203,12 +203,16 @@ define tag_checker() return $bad_instances do
     end
   end
 
+
+
   $instances_hrefs = $operational_instances_hrefs + $provisioned_instances_hrefs + $running_instances_hrefs + $volume_hrefs
+
+
 
   $$bad_instances_array={}
   $$add_tags_hash = {}
   $$add_prefix_value = {}
-  foreach $hrefs in $instances_hrefs do
+  concurrent foreach $hrefs in $instances_hrefs do
     $instances_tags = rs_cm.tags.by_resource(resource_hrefs: [$hrefs])
     $tag_info_array = $instances_tags[0]
 
@@ -360,6 +364,7 @@ define send_tags_alert_email($tags,$to) do
 
   $$list_of_instances=""
   foreach $resource in unique(keys($$bad_instances_array)) do
+    
     $$resource_error = 'false'
     @resource = rs_cm.servers.empty()
 
@@ -407,8 +412,18 @@ define send_tags_alert_email($tags,$to) do
       if $server_access_link_root == null
         $server_access_link_root = 'unknown'
       end
+      call sys_log(@@execution.name, join(["Processing the following resource:", @resource.href]) )
+      #call sys_log(@@execution.name, join(["Processing the following resource:", @resource.created_at]) )
 
-      $resource_date = strftime(to_d(@resource.created_at),"%Y-%m-%d")
+      if @resource.created_at == null 
+        $resource_date = 'unknown'
+      else
+        $resource_date = strftime(to_d(@resource.created_at),"%Y-%m-%d")
+      end
+
+      call sys_log(@@execution.name, join(["After if statement:", $resource_date]) )
+
+
       $missing = ""
       $invalid = ""
       $delete_date = tag_value(@resource,'rs_policy:delete_date')
