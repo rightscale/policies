@@ -27,7 +27,7 @@ name 'Tag Checker'
 rs_ca_ver 20161221
 short_description "![Tag](https://s3.amazonaws.com/rs-pft/cat-logos/tag.png)\n
 Check for a tag and report which instances and volumes are missing it."
-long_description "Version: 2.1"
+long_description "Version: 2.2"
 import "mailer"
 
 ##################
