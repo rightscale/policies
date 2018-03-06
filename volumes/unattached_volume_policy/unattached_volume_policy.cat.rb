@@ -85,7 +85,7 @@ define launch($param_email,$param_action,$param_days_old,$param_run_once) return
         call find_unattached_volumes($param_action,$param_email) retrieve $send_email
         sleep(20)
         
-		if $param_run_once == "true"
+	if $param_run_once == "true"
           $time = now() + 30
           rs_ss.scheduled_actions.create(
            execution_id: @@execution.id,
