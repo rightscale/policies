@@ -142,8 +142,11 @@ define tag_checker() return $bad_instances do
   # retrieve tags on current deployment  
   # don't think this deployment has any tags we need, as it's the cloudapp  - EG
   call get_tags_for_resource(@@deployment) retrieve $tags_on_deployment
+  
+  sub on_error: skip do
   call sys_log(@@execution.name, 'Tag Checker Status: Started')
-
+  end
+  
   $href_tag = map $current_tag in $tags_on_deployment return $tag do
     if $current_tag =~ "(tagchecker:tag_key)"
       $tag_key = last(split($current_tag,"="))
@@ -166,9 +169,10 @@ define tag_checker() return $bad_instances do
   foreach $key in keys($advanced_tag_keys) do
     $param_tag_keys_array << $key
   end
-
+  
+  sub on_error: skip do
   call sys_log(@@execution.name, join(["Tag Checker Tag Key Array:", $param_tag_keys_array]) )
-
+  end
   # for testing.  change the deployment_href to one that includes a few servers
   # to test with.  uncomment code and comment the concurrent block below it.
   #  $deployment_href =  '/api/deployments/378563001' # replace with your deployment here
@@ -182,24 +186,22 @@ define tag_checker() return $bad_instances do
     sub do
       @instances_operational = rs_cm.instances.get(filter: ["state==operational"])
       $operational_instances_hrefs = to_object(@instances_operational)["hrefs"]
-      call sys_log(@@execution.name, join(["Operational Instances:", $operational_instances_hrefs]) )
-
-      #call sys_log(@@execution.name, 'Operational Instances: ' + $operational_instances_hrefs)
+      call sys_log("Operational Instances:", join(["Operational Instances:", $operational_instances_hrefs]) )
     end
     sub do
       @instances_provisioned = rs_cm.instances.get(filter: ["state==provisioned"])
       $provisioned_instances_hrefs = to_object(@instances_provisioned)["hrefs"]
-      call sys_log(@@execution.name, join(["Provisioned Instances:", $provisioned_instances_hrefs]) )
+      call sys_log("Provisioned Instances:", join(["Provisioned Instances:", $provisioned_instances_hrefs]) )
     end
     sub do
       @instances_running = rs_cm.instances.get(filter: ["state==running"])
       $running_instances_hrefs = to_object(@instances_running)["hrefs"]
-      call sys_log(@@execution.name, join(["Running Instances:", $running_instances_hrefs]) )
+      call sys_log("Running Instances:", join(["Running Instances:", $running_instances_hrefs]) )
     end
     sub do
       @volumes = rs_cm.volumes.get()
       $volume_hrefs = to_object(@volumes)["hrefs"]
-     # call sys_log(@@execution.name, 'Volumes: ' + $volume_hrefs)
+      call sys_log("Volumes: ",join(["Volumes: ", $volume_hrefs]) )
     end
   end
 
@@ -412,8 +414,10 @@ define send_tags_alert_email($tags,$to) do
       if $server_access_link_root == null
         $server_access_link_root = 'unknown'
       end
+
+      sub on_error: skip do
       call sys_log(@@execution.name, join(["Processing the following resource:", @resource.href]) )
-      #call sys_log(@@execution.name, join(["Processing the following resource:", @resource.created_at]) )
+      end
 
       if @resource.created_at == null 
         $resource_date = 'unknown'
@@ -421,8 +425,9 @@ define send_tags_alert_email($tags,$to) do
         $resource_date = strftime(to_d(@resource.created_at),"%Y-%m-%d")
       end
 
-      call sys_log(@@execution.name, join(["After if statement:", $resource_date]) )
-
+      sub on_error: skip do
+      call sys_log(@@execution.name, join(["Resource Data:", $resource_date]) )
+      end
 
       $missing = ""
       $invalid = ""
