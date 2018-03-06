@@ -1,4 +1,3 @@
-
 name 'Unattached Volume Policy with csv file attachment'
 rs_ca_ver 20160622
 short_description "![RS Policy](https://goo.gl/RAcMcU =64x64)\n
@@ -62,7 +61,7 @@ end
 
 parameter "param_run_once" do
   category "Run Once"
-  label "If set to true the cloud app will terminate itself after completion.Do not sure if scheduled job"
+  label "If set to true the cloud app will terminate itself after completion.  Do NOT use for scheduling this job."
   type "string"
   default "false"
   allowed_values "true","false"
