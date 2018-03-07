@@ -1,6 +1,12 @@
 Tag Checker Policy changelog
 
+v2.2
+----
+- bugfix issues [#75] https://github.com/rightscale/policies/issues/75
+
+
 v2.1
+----
 - adding additonal colums to the CSV file attached to email.
 
 v2.0
