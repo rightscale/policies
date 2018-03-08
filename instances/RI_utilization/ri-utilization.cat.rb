@@ -8,6 +8,12 @@ import "mailer"
 ##################
 # User inputs    #
 ##################
+parameter "param_organization_account_number" do
+  category "RI"
+  label "Organization Account Number"
+  type "number"
+  default "2932"
+end
 
 parameter "param_utilization" do
   category "RI"
@@ -37,11 +43,13 @@ operation "launch" do
   } end
 end
 
-define launch($param_utilization,$param_email) return $arr_underutilized_s do
+define launch($param_utilization,$param_email,$param_organization_account_number) return $arr_underutilized_s do
   call sys_log.set_task_target(@@deployment)
   call sys_log.summary("utilization")
+  $url = join(["https://optima.rightscale.com/api/reco/orgs/", $param_organization_account_number,"/aws_reserved_instances"])
+  call sys_log.detail("url: "+ $url)
   $response = http_get(
-    url: "https://optima.rightscale.com/api/reco/orgs/2932/aws_reserved_instances"
+    url: $url
   )
   $body = $response["body"]
   $arr_underutilized = []
@@ -62,5 +70,5 @@ define launch($param_utilization,$param_email) return $arr_underutilized_s do
   foreach $item in $arr_underutilized do
     call mailer.update_csv_with_rows($endpoint, $filename, values($item)) retrieve $filename
   end
-  call mailer.send_html_email($endpoint, $param_email, $from, $subject, $arr_underutilized_s, $filename, "text") retrieve $response
+  call mailer.send_html_email($endpoint, $param_email, $from, $subject, "Please see attachment for accounts", $filename, "text") retrieve $response
 end
