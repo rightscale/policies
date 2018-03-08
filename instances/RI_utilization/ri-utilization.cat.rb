@@ -37,7 +37,7 @@ operation "launch" do
   } end
 end
 
-define launch($param_utilization) return $arr_underutilized_s do
+define launch($param_utilization,$param_email) return $arr_underutilized_s do
   call sys_log.set_task_target(@@deployment)
   call sys_log.summary("utilization")
   $response = http_get(
@@ -52,4 +52,15 @@ define launch($param_utilization) return $arr_underutilized_s do
     end
   end
   $arr_underutilized_s = to_s($arr_underutilized)
+  $keys = keys($arr_underutilized[0])
+  $endpoint = "http://policies.services.rightscale.com"
+  $subject = "RI UnderUtilized Policy"
+  $from = "policy-cat@services.rightscale.com"
+  call sys_log.detail(join(["keys: ", $keys]))
+  call mailer.create_csv_with_columns($endpoint,$keys) retrieve $filename
+  $$csv_filename = $filename
+  foreach $item in $arr_underutilized do
+    call mailer.update_csv_with_rows($endpoint, $filename, values($item)) retrieve $filename
+  end
+  call mailer.send_html_email($endpoint, $param_email, $from, $subject, $arr_underutilized_s, $filename, "text") retrieve $response
 end
