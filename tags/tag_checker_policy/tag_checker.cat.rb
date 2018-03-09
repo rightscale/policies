@@ -182,28 +182,28 @@ define tag_checker() return $bad_instances do
   #  $volume_hrefs = to_object(@volumes)["hrefs"]
   #  $instances_hrefs = $operational_instances_hrefs + $volume_hrefs
 
-  concurrent  return $running_instances_hrefs do
-    # sub do
-    #   @instances_operational = rs_cm.instances.get(filter: ["state==operational"])
-    #   $operational_instances_hrefs = to_object(@instances_operational)["hrefs"]
-    #   call sys_log("Operational Instances:", join(["Operational Instances:", $operational_instances_hrefs]) )
-    # end
-    # sub do
-    #   @instances_provisioned = rs_cm.instances.get(filter: ["state==provisioned"])
-    #   $provisioned_instances_hrefs = to_object(@instances_provisioned)["hrefs"]
-    #   call sys_log("Provisioned Instances:", join(["Provisioned Instances:", size($provisioned_instances_hrefs)]) )
-    # end
+  #concurrent  return $running_instances_hrefs do
     sub do
-       @instances_running = rs_cm.instances.get(view: "tiny",filter: ["state==running"])
-       $running_instances_hrefs = to_object(@instances_running)["hrefs"]
-       call sys_log("Running Instances:", join(["Running Instances:", size($running_instances_hrefs)]) )
+      @all_resources = rs_cm.instances.get(view: "tiny", ["state==operational"])
+      #$operational_instances_hrefs = to_object(@instances_operational)["hrefs"]
+      #call sys_log("Operational Instances:", join(["Operational Instances:", $operational_instances_hrefs]) )
     end
-    # sub do
-    #   @volumes = rs_cm.volumes.get()
-    #   $volume_hrefs = to_object(@volumes)["hrefs"]
-    #   call sys_log("Volumes: ",join(["Volumes: ", $volume_hrefs]) )
-    # end
-  end
+    sub do
+      @all_resources = @all_instances + rs_cm.instances.get(view: "tiny", ["state==provisioned"])
+      #$provisioned_instances_hrefs = to_object(@instances_provisioned)["hrefs"]
+      #call sys_log("Provisioned Instances:", join(["Provisioned Instances:", size($provisioned_instances_hrefs)]) )
+    end
+    sub do
+      @all_instances = @all_instances + rs_cm.instances.get(view: "tiny",filter: ["state==running"])
+       #$running_instances_hrefs = to_object(@instances_running)["hrefs"]
+       #call sys_log("Running Instances:", join(["Running Instances:", size($running_instances_hrefs)]) )
+    end
+    sub do
+      @all_instances = @all_instances + rs_cm.volumes.get()
+      #$volume_hrefs = to_object(@volumes)["hrefs"]
+      #call sys_log("Volumes: ",join(["Volumes: ", $volume_hrefs]) )
+    end
+  #end
 
 
 
@@ -215,11 +215,17 @@ define tag_checker() return $bad_instances do
   $$bad_instances_array={}
   $$add_tags_hash = {}
   $$add_prefix_value = {}
-  foreach $hrefs in $instances_hrefs do
-    
+
+
+  foreach @resource in @all_resources do
+    $view="tiny"
+    if @resource.type == "volume"
+      $view="default"
+    end
+
     #if a resource goes away during the run of this policy, we want to continue processing the other resources
     sub on_error: skip do
-
+      $hrefs = @resource.href
       call sys_log(@@execution.name, join(["Processing:", $hrefs]) )
       #get tags for the resource
       
@@ -229,7 +235,7 @@ define tag_checker() return $bad_instances do
       $tag_info_array = $instances_tags[0]
 
       #retrieve the resource
-      @resource = rs_cm.get(view: "tiny", href: $hrefs)
+      @resource = rs_cm.get(view: $view, href: $hrefs)
 
       #convert to object
       $resource = to_object(@resource)
