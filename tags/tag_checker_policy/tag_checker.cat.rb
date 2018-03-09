@@ -181,18 +181,18 @@ define tag_checker() return $bad_instances do
   #  @volumes = rs_cm.volumes.get(filter: ["deployment_href=="+$deployment_href])
   #  $volume_hrefs = to_object(@volumes)["hrefs"]
   #  $instances_hrefs = $operational_instances_hrefs + $volume_hrefs
-
+ 
   concurrent return @all_operational, @all_provisioned, @all_running, @all_volumes  do
-    sub do
+    sub task_label: "Retrieving Operational Instances" do
       @all_operational = rs_cm.instances.get(view:"tiny",filter:  ["state==operational"]))
     end
-    sub do
+    sub task_label: "Retrieving Provisioned Instances" do
       @all_provisioned = rs_cm.instances.get(view:"tiny",filter:  ["state==provisioned"])
     end
-    sub do
+    sub task_label: "Retrieving Running Instance" do
       @all_running = rs_cm.instances.get(view:"tiny",filter: ["state==running"])
     end
-    sub do
+    sub task_label: "Retrieving volumes" do
       @all_volumes = rs_cm.volumes.get()
     end
   end
