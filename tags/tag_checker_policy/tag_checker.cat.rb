@@ -182,54 +182,68 @@ define tag_checker() return $bad_instances do
   #  $volume_hrefs = to_object(@volumes)["hrefs"]
   #  $instances_hrefs = $operational_instances_hrefs + $volume_hrefs
 
-  concurrent return $operational_instances_hrefs, $provisioned_instances_hrefs, $running_instances_hrefs, $volume_hrefs do
+  concurrent  return $running_instances_hrefs do
+    # sub do
+    #   @instances_operational = rs_cm.instances.get(filter: ["state==operational"])
+    #   $operational_instances_hrefs = to_object(@instances_operational)["hrefs"]
+    #   call sys_log("Operational Instances:", join(["Operational Instances:", $operational_instances_hrefs]) )
+    # end
+    # sub do
+    #   @instances_provisioned = rs_cm.instances.get(filter: ["state==provisioned"])
+    #   $provisioned_instances_hrefs = to_object(@instances_provisioned)["hrefs"]
+    #   call sys_log("Provisioned Instances:", join(["Provisioned Instances:", size($provisioned_instances_hrefs)]) )
+    # end
     sub do
-      @instances_operational = rs_cm.instances.get(filter: ["state==operational"])
-      $operational_instances_hrefs = to_object(@instances_operational)["hrefs"]
-      call sys_log("Operational Instances:", join(["Operational Instances:", $operational_instances_hrefs]) )
+       @instances_running = rs_cm.instances.get(view: "tiny",filter: ["state==running"])
+       $running_instances_hrefs = to_object(@instances_running)["hrefs"]
+       call sys_log("Running Instances:", join(["Running Instances:", size($running_instances_hrefs)]) )
     end
-    sub do
-      @instances_provisioned = rs_cm.instances.get(filter: ["state==provisioned"])
-      $provisioned_instances_hrefs = to_object(@instances_provisioned)["hrefs"]
-      call sys_log("Provisioned Instances:", join(["Provisioned Instances:", $provisioned_instances_hrefs]) )
-    end
-    sub do
-      @instances_running = rs_cm.instances.get(filter: ["state==running"])
-      $running_instances_hrefs = to_object(@instances_running)["hrefs"]
-      call sys_log("Running Instances:", join(["Running Instances:", $running_instances_hrefs]) )
-    end
-    sub do
-      @volumes = rs_cm.volumes.get()
-      $volume_hrefs = to_object(@volumes)["hrefs"]
-      call sys_log("Volumes: ",join(["Volumes: ", $volume_hrefs]) )
-    end
+    # sub do
+    #   @volumes = rs_cm.volumes.get()
+    #   $volume_hrefs = to_object(@volumes)["hrefs"]
+    #   call sys_log("Volumes: ",join(["Volumes: ", $volume_hrefs]) )
+    # end
   end
 
 
 
-  $instances_hrefs = $operational_instances_hrefs + $provisioned_instances_hrefs + $running_instances_hrefs + $volume_hrefs
-
+  #$instances_hrefs = $operational_instances_hrefs + $provisioned_instances_hrefs + $running_instances_hrefs + $volume_hrefs
+  $instances_hrefs =  $running_instances_hrefs 
+  call sys_log(@@execution.name, join(["Resources to process:", size($instances_hrefs)]) )
 
 
   $$bad_instances_array={}
   $$add_tags_hash = {}
   $$add_prefix_value = {}
-  concurrent foreach $hrefs in $instances_hrefs do
-    $instances_tags = rs_cm.tags.by_resource(resource_hrefs: [$hrefs])
-    $tag_info_array = $instances_tags[0]
+  foreach $hrefs in $instances_hrefs do
+    
+    #if a resource goes away during the run of this policy, we want to continue processing the other resources
+    sub on_error: skip do
 
-    @resource = rs_cm.get(href: $hrefs)
-    $resource = to_object(@resource)
+      call sys_log(@@execution.name, join(["Processing:", $hrefs]) )
+      #get tags for the resource
+      
+      
+      $instances_tags = rs_cm.tags.by_resource(resource_hrefs: [$hrefs])
+      #load the array with the tags from the resource.
+      $tag_info_array = $instances_tags[0]
 
-    # resource must be an instance
-    # resource must be a volume not AzureRM
-    # resource must be a volume in AzureRM without volume_type
-    # if the volume is in azureRM and not a Managed Disk then skip
-    if $resource['type'] == 'instances' || ($resource['type'] == 'volumes' && @resource.cloud().name !~ /^AzureRM/) || ($resource['type'] == 'volumes' && @resource.cloud().name =~ /^AzureRM/ && any?(select($resource['details'][0]['links'],{rel: 'volume_type'})))
-      # check for missing tags
-      call check_tag_key($tag_info_array,$param_tag_keys_array,$advanced_tags)
-      # check for incorrect tag values
-      call check_tag_value($tag_info_array, $advanced_tags)
+      #retrieve the resource
+      @resource = rs_cm.get(view: "tiny", href: $hrefs)
+
+      #convert to object
+      $resource = to_object(@resource)
+
+      # resource must be an instance
+      # resource must be a volume not AzureRM
+      # resource must be a volume in AzureRM without volume_type
+      # if the volume is in azureRM and not a Managed Disk then skip
+      if $resource['type'] == 'instances' || ($resource['type'] == 'volumes' && @resource.cloud().name !~ /^AzureRM/) || ($resource['type'] == 'volumes' && @resource.cloud().name =~ /^AzureRM/ && any?(select($resource['details'][0]['links'],{rel: 'volume_type'})))
+        # check for missing tags
+        call check_tag_key($tag_info_array,$param_tag_keys_array,$advanced_tags)
+        # check for incorrect tag values
+        call check_tag_value($tag_info_array, $advanced_tags)
+      end
     end
   end
   # add missing tag with default value from $advanced_tags
@@ -616,23 +630,25 @@ define add_tag_to_resources($advanced_tags) do
   $clouds = {}
   # get list of resource and and missing tags.
   foreach $key in keys($$add_tags_hash) do
-    if $advanced_tags[$key] && $advanced_tags[$key]['default-value']
-      foreach $resource in $$add_tags_hash[$key] do
-        # make a map of recourses by cloud to add tags
-        if $resource
-          $cloud_id = split($resource,'/')[3]
-          $resource_array=[]
-          foreach $item in $clouds[$cloud_id] do
-            $resource_array << $item
+    sub on_error: skip do
+      if $advanced_tags[$key] && $advanced_tags[$key]['default-value']
+        foreach $resource in $$add_tags_hash[$key] do
+          # make a map of recourses by cloud to add tags
+          if $resource
+            $cloud_id = split($resource,'/')[3]
+            $resource_array=[]
+            foreach $item in $clouds[$cloud_id] do
+              $resource_array << $item
+            end
+            $resource_array << $resource
+            $clouds[$cloud_id] = $resource_array
           end
-          $resource_array << $resource
-          $clouds[$cloud_id] = $resource_array
         end
-      end
-      # tag each resource by cloud
-      foreach $cloud in keys($clouds) do
-        if any?($clouds[$cloud])
-          rs_cm.tags.multi_add(resource_hrefs: $clouds[$cloud], tags: [join([$key,"=",$advanced_tags[$key]['default-value']])])
+        # tag each resource by cloud
+        foreach $cloud in keys($clouds) do
+          if any?($clouds[$cloud])
+            rs_cm.tags.multi_add(resource_hrefs: $clouds[$cloud], tags: [join([$key,"=",$advanced_tags[$key]['default-value']])])
+          end
         end
       end
     end
@@ -657,29 +673,31 @@ define update_tag_prefix_value($advanced_tags) do
   # get list of resource and and missing tags.
   $invalid=[]
   foreach $key in keys($$add_prefix_value) do
-    foreach $item in $$add_prefix_value[$key] do
-      $new_value = $advanced_tags[$key]['prefix-value'] + $item['tag_value']
-      $resource = $item['resource_href']
-      $tag = join([$key,"=",$new_value])
-      # get existing invalid value to attend other values later.
-      if $$bad_instances_array[$resource] && $$bad_instances_array[$resource]['invalid']
-        $invalid = $$bad_instances_array[$resource]['invalid']
-      end
-      #avoid prepending invalid-value to invalid column in csv file
-      if !include?($item['tag_value'],$advanced_tags[$key]['prefix-value'])
-        $invalid << $tag
-      else
-        $invalid << join([$key,"=",$item['tag_value']])
-      end
+    sub on_error: skip do
+      foreach $item in $$add_prefix_value[$key] do
+        $new_value = $advanced_tags[$key]['prefix-value'] + $item['tag_value']
+        $resource = $item['resource_href']
+        $tag = join([$key,"=",$new_value])
+        # get existing invalid value to attend other values later.
+        if $$bad_instances_array[$resource] && $$bad_instances_array[$resource]['invalid']
+          $invalid = $$bad_instances_array[$resource]['invalid']
+        end
+        #avoid prepending invalid-value to invalid column in csv file
+        if !include?($item['tag_value'],$advanced_tags[$key]['prefix-value'])
+          $invalid << $tag
+        else
+          $invalid << join([$key,"=",$item['tag_value']])
+        end
 
-      $$bad_instances_array[$resource]={
-        invalid: $invalid,
-        missing: $$bad_instances_array[$resource]["missing"]
-      }
+        $$bad_instances_array[$resource]={
+          invalid: $invalid,
+          missing: $$bad_instances_array[$resource]["missing"]
+        }
 
-      # no need to add the tag if it's already been set.
-      if !include?($item['tag_value'],$advanced_tags[$key]['prefix-value'])
-        rs_cm.tags.multi_add(resource_hrefs: [$resource], tags: [$tag])
+        # no need to add the tag if it's already been set.
+        if !include?($item['tag_value'],$advanced_tags[$key]['prefix-value'])
+          rs_cm.tags.multi_add(resource_hrefs: [$resource], tags: [$tag])
+        end
       end
     end
   end
