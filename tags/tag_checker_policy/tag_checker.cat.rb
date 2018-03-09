@@ -184,25 +184,16 @@ define tag_checker() return $bad_instances do
 
   concurrent return @all_operational, @all_provisioned, @all_running, @all_volumes  do
     sub do
-      @all_operational = rs_cm.instances.get(view:"tiny",filter:  ["state==operational"])
-      #$operational_instances_hrefs = to_object(@instances_operational)["hrefs"]
-      #call sys_log("Operational Instances:", join(["Operational Instances:", $operational_instances_hrefs]) )
+      @all_operational = rs_cm.instances.get(view:"tiny",filter:  ["state==operational"]))
     end
     sub do
       @all_provisioned = rs_cm.instances.get(view:"tiny",filter:  ["state==provisioned"])
-      #$provisioned_instances_hrefs = to_object(@instances_provisioned)["hrefs"]
-      #call sys_log("Provisioned Instances:", join(["Provisioned Instances:", size($provisioned_instances_hrefs)]) )
     end
     sub do
       @all_running = rs_cm.instances.get(view:"tiny",filter: ["state==running"])
-       #$running_instances_hrefs = to_object(@instances_running)["hrefs"]
-       #call sys_log("Running Instances:", join(["Running Instances:", size($running_instances_hrefs)]) )
     end
-
     sub do
       @all_volumes = rs_cm.volumes.get()
-      #$volume_hrefs = to_object(@volumes)["hrefs"]
-      #call sys_log("Volumes: ",join(["Volumes: ", $volume_hrefs]) )
     end
   end
 
