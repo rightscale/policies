@@ -12,10 +12,11 @@ ACCOUNT_ID=""
 OAUTH_REFRESH_TOKEN=""
 POLICY_LIST_FILE=""
 SHARD_HOSTNAME=""
+PUBLISH_POLICIES="NO"
 
 RSC_CMD="rsc"
 
-while getopts "ha:r:s:f:" opt;
+while getopts "ha:r:s:f:p" opt;
 do
 case "$opt" in
     h)
@@ -45,6 +46,9 @@ case "$opt" in
 	SHARD_HOSTNAME="us-${shard}.rightscale.com"
 	RSC_CMD="$RSC_CMD -h $SHARD_HOSTNAME"
 
+    ;;
+    p)
+        PUBLISH_POLICIES="YES"
     ;;
     *)
 	echo "Unknown parameter. Run \"$0 -h\" for help."
@@ -86,45 +90,48 @@ echo ""
 
 rm $tmpfile
 
-# Publish the CAT files
+# Publish the CAT files if told to
+if [ $PUBLISH_POLICIES == "YES" ]
+then
 
-# create a clean version of the list file with the package files removed 
-tmpfile=$(mktemp)
-sed '/^### package files/,/^### package files/{//!d;}' $POLICY_LIST_FILE |
-sed '/^#/d' | sed '/^$/d' > $tmpfile
+    # create a clean version of the list file with the package files removed 
+    tmpfile=$(mktemp)
+    sed '/^### package files/,/^### package files/{//!d;}' $POLICY_LIST_FILE |
+    sed '/^#/d' | sed '/^$/d' > $tmpfile
+    
+    echo ""
+    echo "#### PUBLISHING POLICIES ####"
+    echo ""
 
-echo ""
-echo "#### PUBLISHING POLICIES ####"
-echo ""
-
-  for cat_filename in `cat $tmpfile`
-  do
-        cat_name=$(sed -n -e "s/^name[[:space:]]['\"]*\(.*\)['\"]/\1/p" $cat_filename)
-        
-        echo "Checking to see if ($cat_name - $cat_filename) has already been uploaded..."
-        cat_href=$($RSC_CMD ss index collections/$ACCOUNT_ID/templates "filter[]=name==$cat_name" | jq -r '.[0].href')
-        if [[ -z "$cat_href" ]]
-        then
-          echo "Need to upload the CATs first. Run \"$0 cats\""
-          exit 1
-        fi
-
-        # Toss POLICY in front of name so it can be easily searched and sorted in the catalog.
-        # May mean you'll see something like "POLICY - goo policy" but c'est la vie.
-        cat_name="POLICY - $cat_name"
-
-        echo "Checking to see if ($cat_name - $cat_filename) has already been published ..."
-        catalog_href=$($RSC_CMD --pp ss index /api/catalog/catalogs/$ACCOUNT_ID/applications | jq ".[] | select(.name==\"$cat_name\") | .href" | sed 's/"//g')
-
-        if [[ -z "$catalog_href" ]]
-        then
-          echo "($cat_name - $cat_filename) not already published, publishing it now..."
-          # Publish the CAT
-          $RSC_CMD ss publish /designer/collections/${ACCOUNT_ID}/templates id="${cat_href}" name="${cat_name}"
-        else
-          echo "($cat_name - $cat_filename) already published, updating it now..."
-          $RSC_CMD ss publish /designer/collections/${ACCOUNT_ID}/templates id="${cat_href}" overridden_application_href="${catalog_href}"
-        fi
-  done
-
-rm $tmpfile
+      for cat_filename in `cat $tmpfile`
+      do
+            cat_name=$(sed -n -e "s/^name[[:space:]]['\"]*\(.*\)['\"]/\1/p" $cat_filename)
+            
+            echo "Checking to see if ($cat_name - $cat_filename) has already been uploaded..."
+            cat_href=$($RSC_CMD ss index collections/$ACCOUNT_ID/templates "filter[]=name==$cat_name" | jq -r '.[0].href')
+            if [[ -z "$cat_href" ]]
+            then
+              echo "Need to upload the CATs first. Run \"$0 cats\""
+              exit 1
+            fi
+    
+            # Toss POLICY in front of name so it can be easily searched and sorted in the catalog.
+            # May mean you'll see something like "POLICY - goo policy" but c'est la vie.
+            cat_name="POLICY - $cat_name"
+    
+            echo "Checking to see if ($cat_name - $cat_filename) has already been published ..."
+            catalog_href=$($RSC_CMD --pp ss index /api/catalog/catalogs/$ACCOUNT_ID/applications | jq ".[] | select(.name==\"$cat_name\") | .href" | sed 's/"//g')
+    
+            if [[ -z "$catalog_href" ]]
+            then
+              echo "($cat_name - $cat_filename) not already published, publishing it now..."
+              # Publish the CAT
+              $RSC_CMD ss publish /designer/collections/${ACCOUNT_ID}/templates id="${cat_href}" name="${cat_name}"
+            else
+              echo "($cat_name - $cat_filename) already published, updating it now..."
+              $RSC_CMD ss publish /designer/collections/${ACCOUNT_ID}/templates id="${cat_href}" overridden_application_href="${catalog_href}"
+            fi
+      done
+    
+    rm $tmpfile
+ fi
