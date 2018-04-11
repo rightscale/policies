@@ -44,7 +44,7 @@ You can use Cloud Application Templates (CATs) in RightScale Self Service to aut
 - [Cloud Workflow Functions](http://docs.rightscale.com/ss/reference/rcl/v2/ss_RCL_functions.html)
 - [Cloud Workflow Operators](http://docs.rightscale.com/ss/reference/rcl/v2/ss_RCL_operators.html)
 
-## Released Policies - PCL Based
+## Released Policy Templates
 
 ## Getting Help
 Support for these Policies will be provided though GitHub Issues and the RightScale public slack channel #policies.
