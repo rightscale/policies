@@ -27,7 +27,7 @@ name 'Tag Checker'
 rs_ca_ver 20161221
 short_description "![Tag](https://s3.amazonaws.com/rs-pft/cat-logos/tag.png)\n
 Check for a tag and report which instances and volumes are missing it."
-long_description "Version: 2.2"
+long_description "Version: 2.3"
 import "mailer"
 
 ##################
@@ -206,7 +206,7 @@ define tag_checker() return $bad_instances do
   end
 
 
-
+  task_label('Concatenating resource hrefs into array')
   $instances_hrefs = $operational_instances_hrefs + $provisioned_instances_hrefs + $running_instances_hrefs + $volume_hrefs
 
 
@@ -214,10 +214,13 @@ define tag_checker() return $bad_instances do
   $$bad_instances_array={}
   $$add_tags_hash = {}
   $$add_prefix_value = {}
+  task_label('Concurrently checking resources for tags')
   concurrent foreach $hrefs in $instances_hrefs do
+    task_label('Gettings tags for resource '+$hrefs)
     $instances_tags = rs_cm.tags.by_resource(resource_hrefs: [$hrefs])
     $tag_info_array = $instances_tags[0]
 
+    task_label('Retrieving '+$hrefs+' object')
     @resource = rs_cm.get(href: $hrefs)
     $resource = to_object(@resource)
 
@@ -225,33 +228,47 @@ define tag_checker() return $bad_instances do
     # resource must be a volume not AzureRM
     # resource must be a volume in AzureRM without volume_type
     # if the volume is in azureRM and not a Managed Disk then skip
+    task_label('Checking resource type')
     if $resource['type'] == 'instances' || ($resource['type'] == 'volumes' && @resource.cloud().name !~ /^AzureRM/) || ($resource['type'] == 'volumes' && @resource.cloud().name =~ /^AzureRM/ && any?(select($resource['details'][0]['links'],{rel: 'volume_type'})))
       # check for missing tags
+      task_label('Checking Tag Key')
       call check_tag_key($tag_info_array,$param_tag_keys_array,$advanced_tags)
+      task_label('Done Checking Tag Key')
       # check for incorrect tag values
+      task_label('Checking Tag Value')
       call check_tag_value($tag_info_array, $advanced_tags)
+      task_label('DoneChecking Tag Value')
     end
   end
+  task_label('Done concurrently checking resources for tags')
   # add missing tag with default value from $advanced_tags
+  task_label('Checking advanced_tags keys')
   if any?(keys($advanced_tags))
+    task_label('Adding Tag to resource')
    call add_tag_to_resources($advanced_tags)
+   task_label('Updating Tag Prefix Value')
    call update_tag_prefix_value($advanced_tags)
   end
 
   if $delete_days > 0
+    task_label('Adding Delete Date Tag')
     call add_delete_date_tag($delete_days)
   end
 
-
+  task_label('Getting unique resources with missing tags')
   $bad_instances = to_s(unique(keys($$bad_instances_array)))
 
   # get the users email and add to param_email
+  task_label('Setting up email')
   $user_email = tag_value(@@deployment, 'selfservice:launched_by')
   $param_email = $user_email +','+$param_email
 
   # Send an alert email if there is at least one improperly tagged instance
+  task_label('Checking if there are any resources to send')
   if logic_not(empty?(keys($$bad_instances_array)))
+    task_label('Sending email')
     call send_tags_alert_email(join($param_tag_keys_array,','),$param_email)
+    task_label('Done sending email')
   end
 end
 
@@ -277,6 +294,7 @@ define get_tags_for_resource(@resource) return $tags do
 
   # @return $tags [Array<String>] an array of tags assigned to @resource
   $tags = []
+  task_label('Getting tags for resource')
   $tags_response = rs_cm.tags.by_resource(resource_hrefs: [@resource.href])
   $inner_tags_ary = first(first($tags_response))["tags"]
   $tags = map $current_tag in $inner_tags_ary return $tag do
@@ -292,6 +310,7 @@ define send_tags_alert_email($tags,$to) do
   call find_shard() retrieve $$shard
   $endpoint = "http://policies.services.rightscale.com"
   # Build email
+  task_label('Building email')
   $subject = "Tag Checker Policy: "
   $from = "policy-cat@services.rightscale.com"
   $email_msg = "RightScale discovered that the following resources are missing tags <b>" + $tags + "</b> in <b>"+ $account_name +".</b> Per the policy set by your organization, these resources are not compliant.  View the attached CSV file for more details."
@@ -361,11 +380,13 @@ define send_tags_alert_email($tags,$to) do
   </html>"
 
   $columns = ["Cloud Type","Cloud","Resource Type","Resource UID","Resource Name","Created","Missing Tags","Invalid values","Delete Date", "State", "Link"]
+  task_label('Creating CSV with Columns')
   call mailer.create_csv_with_columns($endpoint,$columns) retrieve $filename
   $$csv_filename = $filename
 
   $$list_of_instances=""
   foreach $resource in unique(keys($$bad_instances_array)) do
+    task_label('Processing resource '+$resource)
     
     $$resource_error = 'false'
     @resource = rs_cm.servers.empty()
