@@ -33,32 +33,34 @@ define launch($param_email) return $response do
   @security_audit_entries_array = rs_cm.audit_entries.empty()
   $$ae_array = [["summary","resource","api_href", "updated_at", "detail"]]
   foreach @ae in @audit_entries do
-    if to_s(@ae.summary) =~ /RightLink10/
-      task_label(join(["searching: ", @ae.summary]))
-      @security_audit_entries_array = @security_audit_entries_array + @ae
-      @resource = @ae.auditee()
-      $detail = @ae.detail()
-      $line_array = lines(first($detail))
-      $details_to_include = []
-      foreach $line in $line_array do
-        $temp_line = ""
-        if $line =~ /New users to process/
-          $temp_line = $line
-        end
-        if $line =~ /User removed from/
-          $temp_line = $line
-        end
-        $str_array = split($temp_line,' ')
-        if size($str_array) > 1
-          $date = to_d(join($str_array[0..1], ' '))
-          $api_time = strftime($date, "%Y/%m/%d %H:%M:%S +0000")
-          if $api_time > $start_api_time
-            $details_to_include << $line
+    sub on_error: skip do
+      if to_s(@ae.summary) =~ /RightLink10/
+        task_label(join(["searching: ", @ae.summary]))
+        @security_audit_entries_array = @security_audit_entries_array + @ae
+        @resource = @ae.auditee()
+        $detail = @ae.detail()
+        $line_array = lines(first($detail))
+        $details_to_include = []
+        foreach $line in $line_array do
+          $temp_line = ""
+          if $line =~ /New users to process/
+            $temp_line = $line
+          end
+          if $line =~ /User removed from/
+            $temp_line = $line
+          end
+          $str_array = split($temp_line,' ')
+          if size($str_array) > 1
+            $date = to_d(join($str_array[0..1], ' '))
+            $api_time = strftime($date, "%Y/%m/%d %H:%M:%S +0000")
+            if $api_time > $start_api_time
+              $details_to_include << $line
+            end
           end
         end
-      end
-      if size($details_to_include) > 0
-        $$ae_array << [@ae.summary,@resource.name,@ae.href, @ae.updated_at, $details_to_include]
+        if size($details_to_include) > 0
+          $$ae_array << [@ae.summary,@resource.name,@ae.href, @ae.updated_at, $details_to_include]
+        end
       end
     end
   end

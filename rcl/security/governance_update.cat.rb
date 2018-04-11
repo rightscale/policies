@@ -1,4 +1,4 @@
-name "Policy: Governance Update"
+name "Policy: Governance Smoke Test"
 rs_ca_ver 20161221
 short_description "Policy to track audit entry updates for governance"
 long_description "Version: 0.1"
@@ -18,6 +18,22 @@ end
 operation "launch" do
   description "Search for resizing opportunities"
   definition "launch"
+end
+
+
+define create_user_groups($user_href) return $groups do
+    $user_id = last(split($user_href, '/'))
+    call find_shard() retrieve $shard_number
+    $cloud_response = http_get(
+        url: "https://us-" + $shard_number + ".rightscale.com/grs/users/" + $user_id + "?view=extended",
+        headers: { "X_API_VERSION": "2.0" }
+    )
+    $body = $cloud_response["body"]
+    $group_array = $body["groups"]
+    $groups = []
+    foreach $group in $group_array do
+      $groups << $group["name"]
+    end
 end
 
 define launch($param_email) return $response do

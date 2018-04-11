@@ -24,30 +24,37 @@ parameter "param_action" do
   default "Report Only"
 end
 
-parameter "cpu_param_threshold" do
+parameter "cpu_max_param_threshold" do
   category "Configuration"
-  label "CPU Metric Threshold Percentage"
+  label "CPU Max Metric Threshold Percentage"
   type "number"
   default "0"
 end
 
-parameter "cpu_param_duration" do
+parameter "cpu_avg_param_threshold" do
   category "Configuration"
-  label "CPU Metric Threshold Duration in minutes"
+  label "CPU Average Metric Threshold Percentage"
   type "number"
-  default "5"
+  default "0"
 end
 
-parameter "mem_param_threshold" do
+parameter "mem_max_param_threshold" do
   category "Configuration"
   label "Memory Metric Threshold Percentage"
   type "number"
   default "0"
 end
 
-parameter "mem_param_duration" do
+parameter "mem_avg_param_threshold" do
   category "Configuration"
-  label "Memory Metric Threshold Duration"
+  label "Memory Metric Threshold Percentage"
+  type "number"
+  default "0"
+end
+
+parameter "param_duration" do
+  category "Configuration"
+  label "Metric Threshold Duration"
   type "number"
   default "5"
 end
@@ -72,10 +79,10 @@ operation "find_servers_needing_downsize" do
   description "checks for servers down"
 end
 
-define launch($param_tag,$param_email,$param_action,$cpu_param_duration,$cpu_param_threshold,$mem_param_duration,$mem_param_threshold) return $cpu_param_duration,$cpu_param_threshold,$mem_param_duration,$mem_param_threshold do
+define launch($param_tag,$param_email,$param_action,$cpu_avg_param_threshold,$cpu_max_param_threshold,$mem_avg_param_threshold,$mem_max_param_threshold,$param_duration) return $cpu_avg_param_threshold,$cpu_max_param_threshold,$mem_avg_param_threshold,$mem_max_param_threshold,$param_duration do
   call sys_log.set_task_target(@@deployment)
   call sys_log.summary("RightSize - Downsize - TSS")
-  # call find_servers_needing_downsize($param_email,$param_action,$cpu_param_duration,$cpu_param_threshold,$mem_param_duration,$mem_param_threshold,$param_tag)
+  # call find_servers_needing_downsize($param_email,$param_tag,$cpu_avg_param_threshold,$cpu_max_param_threshold,$mem_avg_param_threshold,$mem_max_param_threshold,$param_duration)
   $time = now() + (60*5)
   rs_ss.scheduled_actions.create(
                                   execution_id:       @@execution.id,
@@ -87,7 +94,7 @@ define launch($param_tag,$param_email,$param_action,$cpu_param_duration,$cpu_par
                                 )
 end
 
-define find_servers_needing_downsize($param_email,$param_action,$cpu_param_duration,$cpu_param_threshold,$mem_param_duration,$mem_param_threshold,$param_tag) do
+define find_servers_needing_downsize($param_email,$param_tag,$cpu_avg_param_threshold,$cpu_max_param_threshold,$mem_avg_param_threshold,$mem_max_param_threshold,$param_duration) do
   call find_account_name() retrieve $account_name
   call find_account_number() retrieve $$account_number
   call find_shard() retrieve $$shard
@@ -96,7 +103,7 @@ define find_servers_needing_downsize($param_email,$param_action,$cpu_param_durat
   call sys_log.detail(join(["tagged resources: ", to_s(to_object(@resources))]))
   @resizeable_instance_collection = rs_cm.instances.empty()
   foreach @resource in @resources do
-    call get_monitoring_data(@resource,$cpu_param_duration,$cpu_param_threshold,$mem_param_duration,$mem_param_threshold) retrieve $result
+    call get_monitoring_data(@resource,$cpu_avg_param_threshold,$cpu_max_param_threshold,$mem_avg_param_threshold,$mem_max_param_threshold,$param_duration) retrieve $result
     if $result == true
       @resizeable_instance_collection = @resizeable_instance_collection + @resource
     end
@@ -135,14 +142,12 @@ define find_servers_needing_downsize($param_email,$param_action,$cpu_param_durat
   end
 end
 
-define get_monitoring_data(@instance,$cpu_param_duration,$cpu_param_threshold,$mem_param_duration,$mem_param_threshold) return $result do
+define get_monitoring_data(@instance,$cpu_avg_param_threshold,$cpu_max_param_threshold,$mem_avg_param_threshold,$mem_max_param_threshold,$param_duration) return $result do
   $rs_endpoint = "us-"+$$shard+".rightscale.com"
   $true_counts = 0
   $result = false
-  $cpu_duration = (($cpu_param_duration * 60) * -1)
-  call sys_log.detail("cpu_duration:" + $cpu_duration)
-  $mem_duration = (($mem_param_duration * 60) * -1)
-  call sys_log.detail("mem_duration:" + $mem_duration)
+  $duration = (($param_duration * 60) * -1)
+  call sys_log.detail("duration:" + $duration)
   task_label("CPU Monitoring Pull")
   $cpu_response = http_request(
     verb: "get",
@@ -150,7 +155,7 @@ define get_monitoring_data(@instance,$cpu_param_duration,$cpu_param_threshold,$m
     https: true,
     href: join([@instance.href, "/monitoring_metrics/cpu-0:cpu-idle/data"]),
     headers: { "X-Api-Version": "1.5" },
-    query_strings: { "start": $cpu_duration, "end": "0" }
+    query_strings: { "start": $duration, "end": "0" }
   )
   $cpu_body = $cpu_response["body"]
   $points = $cpu_body["variables_data"][0]["points"]
