@@ -1,0 +1,21 @@
+language: ruby
+sudo: false
+rvm:
+  - 2.2.3
+
+stages:
+  - test
+  - danger
+
+before_script: bundle install
+
+script: 
+  - bundle exec rake test
+
+bundler_args: --without test
+
+jobs:
+  include:
+    - stage: danger
+      script: bundle exec danger
+      env: DANGER

@@ -1,0 +1,143 @@
+GIT
+  remote: git@github.com:rightscale/cat_parser.git
+  revision: 2ffe8110a1f179a6f09b88980474ffa0d51b827e
+  branch: master
+  submodules: true
+  specs:
+    cat_parser (2.5.0)
+      activesupport (~> 3.2)
+      hashie (~> 3.1)
+      i18n (~> 0.6)
+      parslet (~> 1.7)
+      right_support (~> 2.9)
+      uuid (~> 2.3)
+
+GIT
+  remote: git@github.com:rightscale/policy_parser.git
+  revision: 6aff5a3f109b28577561ae09da0e95fba6408c05
+  branch: master
+  submodules: true
+  specs:
+    policy_parser (0.0.1)
+      activesupport (~> 3.2)
+      hashie (~> 3.1)
+      i18n (~> 0.6)
+      parslet (~> 1.7)
+      right_support (~> 2.9)
+      uuid (~> 2.3)
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    activesupport (3.2.22.5)
+      i18n (~> 0.6, >= 0.6.4)
+      multi_json (~> 1.0)
+    addressable (2.5.2)
+      public_suffix (>= 2.0.2, < 4.0)
+    backports (3.11.2)
+    claide (1.0.2)
+    claide-plugins (0.9.2)
+      cork
+      nap
+      open4 (~> 1.3)
+    colored2 (3.1.2)
+    concurrent-ruby (1.0.5)
+    connection_pool (2.2.1)
+    cork (0.3.0)
+      colored2 (~> 3.1)
+    danger (5.5.11)
+      claide (~> 1.0)
+      claide-plugins (>= 0.9.2)
+      colored2 (~> 3.1)
+      cork (~> 0.1)
+      faraday (~> 0.9)
+      faraday-http-cache (~> 1.0)
+      git (~> 1)
+      kramdown (~> 1.5)
+      no_proxy_fix
+      octokit (~> 4.7)
+      terminal-table (~> 1)
+    ethon (0.11.0)
+      ffi (>= 1.3.0)
+    faraday (0.14.0)
+      multipart-post (>= 1.2, < 3)
+    faraday-http-cache (1.3.1)
+      faraday (~> 0.8)
+    faraday_middleware (0.12.2)
+      faraday (>= 0.7.4, < 1.0)
+    ffi (1.9.23)
+    gh (0.14.0)
+      addressable
+      backports
+      faraday (~> 0.8)
+      multi_json (~> 1.0)
+      net-http-persistent (>= 2.7)
+      net-http-pipeline
+    git (1.3.0)
+    hashie (3.5.7)
+    highline (1.7.10)
+    i18n (0.9.5)
+      concurrent-ruby (~> 1.0)
+    json (2.1.0)
+    kramdown (1.16.2)
+    launchy (2.4.3)
+      addressable (~> 2.3)
+    macaddr (1.7.1)
+      systemu (~> 2.6.2)
+    mixlib-shellout (2.3.2)
+    multi_json (1.13.1)
+    multipart-post (2.0.0)
+    nap (1.1.0)
+    net-http-persistent (3.0.0)
+      connection_pool (~> 2.2)
+    net-http-pipeline (1.0.1)
+    no_proxy_fix (0.1.2)
+    octokit (4.8.0)
+      sawyer (~> 0.8.0, >= 0.5.3)
+    open4 (1.3.4)
+    parslet (1.8.2)
+    public_suffix (3.0.2)
+    pusher-client (0.6.2)
+      json
+      websocket (~> 1.0)
+    rake (12.3.1)
+    right_support (2.14.2)
+    sawyer (0.8.1)
+      addressable (>= 2.3.5, < 2.6)
+      faraday (~> 0.8, < 1.0)
+    systemu (2.6.5)
+    terminal-table (1.8.0)
+      unicode-display_width (~> 1.1, >= 1.1.1)
+    thor (0.20.0)
+    thor-scmversion (1.7.0)
+      mixlib-shellout
+      thor
+    travis (1.8.8)
+      backports
+      faraday (~> 0.9)
+      faraday_middleware (~> 0.9, >= 0.9.1)
+      gh (~> 0.13)
+      highline (~> 1.6)
+      launchy (~> 2.1)
+      pusher-client (~> 0.4)
+      typhoeus (~> 0.6, >= 0.6.8)
+    typhoeus (0.8.0)
+      ethon (>= 0.8.0)
+    unicode-display_width (1.3.0)
+    uuid (2.3.8)
+      macaddr (~> 1.0)
+    websocket (1.2.5)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  cat_parser!
+  danger (~> 5.5)
+  policy_parser!
+  rake (~> 12.3)
+  thor-scmversion (~> 1.7)
+  travis (~> 1.8)
+
+BUNDLED WITH
+   1.16.1
