@@ -1,0 +1,29 @@
+# Master list of all files needed to upload all the policies.
+# If you want to only upload a subset, copy this file and modify accordingly.
+# You will likely want the non-CAT files since they are imported by the CATs.
+
+### package files
+../../rightscale-plugins/libraries/sys_log.rb
+../libraries/mailer.rb
+### package files
+
+### <CAT files>
+# Some CATs are commented out since they are somewhat specialized and esoteric.
+# The idea is to upload easily consumable policy CATs for customers
+
+../instances/instance_runtime_policy/long_running_instances.cat.rb
+../instances/shutdown_scheduler/shutdown_scheduler.cat.rb
+../instances/stop_start_scheduler/stop_start_scheduler.rb
+
+../s3_buckets/s3_acl_policy/s3_bucket_perms.rb
+
+../tags/tag_checker_policy/tag_checker.cat.rb
+../tags/volume_tag_sync_policy/aws_volume_tag_sync.cat.rb
+
+../volumes/unattached_volume_policy/unattached_volume_policy.cat.rb
+../volumes/unencrypted_volume_checker_policy/unencrypted_volume_checker.cat.rb
+
+# special cat # ../alerts/quench_alert_policy/quench_alerts.cat.rb
+# special cat # ../security_groups/fastly_security_group_policy/fastly_security_group_rules.cat.rb
+# special cat # ../security_groups/pingdom_security_group_policy/pingdom_security_group_rules.cat.rb
+
