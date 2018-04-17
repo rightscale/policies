@@ -7,3 +7,7 @@ v1.1
 v1.0
 -----
 - initial release
+
+v1.1 
+- Added csv file export with email
+- Added Auto Terminate of the CAT once completed task.  
