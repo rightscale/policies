@@ -32,8 +32,14 @@ import "sys_log"
 #03/02/2018
 # adding auto terminate once completed.
 
-
-
+##################
+# Permissions    #
+##################
+# actor role is sufficient #
+permission "pft_general_permissions" do
+  resources "rs_cm.volumes"
+  actions   "rs_cm.destroy", "rs_cm.index"
+end
 
 ##################
 # User inputs    #
