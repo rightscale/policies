@@ -634,39 +634,59 @@ end
 
 auth "rs", type: "rightscale"
 
-resources "instances_us_east_1", type: "rs_cm.instances" do
-  cloud_href "/api/clouds/1"
-end
+# resources "instances_us_east_1", type: "rs_cm.instances" do
+#   cloud_href "/api/clouds/1"
+# end
+#
+# resources "instances_us_west_2", type: "rs_cm.instances" do
+#   cloud_href "/api/clouds/6"
+# end
+#
+# datasource "instances_us_east_1" do
+#     field "href",   val(@instances_us_east_1,'href')
+#     field "id",     val(@instances_us_east_1,'resource_uid')
+#     field "name",   val(@instances_us_east_1,'name')
+#     field "state",  val(@instances_us_east_1,'state')
+#     field "cloud",  val(@instances_us_east_1,'cloud')
+# end
+#
+# datasource "instances_us_west_2" do
+#     field "href",   val(@instances_us_west_2,'href')
+#     field "id",     val(@instances_us_west_2,'resource_uid')
+#     field "name",   val(@instances_us_west_2,'name')
+#     field "state",  val(@instances_us_east_1,'state')
+#     field "cloud",  val(@instances_us_west_2,'cloud')
+# end
+# datasource "instances" do
+#   run_script $merge_instances, $instances_us_east_1, $instances_us_west_2
+# end
 
-resources "instances_us_west_2", type: "rs_cm.instances" do
-  cloud_href "/api/clouds/6"
-end
+# script "merge_instances", type: "javascript" do
+#   parameters "instances_1", "instances_2"
+#   result "instances"
+#   code <<-EOF
+#   var instances = instances_1.concat(instances_2);
+#   EOF
+# end
 
-datasource "instances_us_east_1" do
-    field "href",   val(@instances_us_east_1,'href')
-    field "id",     val(@instances_us_east_1,'resource_uid')
-    field "name",   val(@instances_us_east_1,'name')
-    field "state",  val(@instances_us_east_1,'state')
-    field "cloud",  val(@instances_us_east_1,'cloud')
-end
-
-datasource "instances_us_west_2" do
-    field "href",   val(@instances_us_west_2,'href')
-    field "id",     val(@instances_us_west_2,'resource_uid')
-    field "name",   val(@instances_us_west_2,'name')
-    field "state",  val(@instances_us_east_1,'state')
-    field "cloud",  val(@instances_us_west_2,'cloud')
-end
-datasource "instances" do
-  run_script $merge_instances, $instances_us_east_1, $instances_us_west_2
-end
-
-script "merge_instances", type: "javascript" do
-  parameters "instances_1", "instances_2"
-  result "instances"
-  code <<-EOF
-  var instances = instances_1.concat(instances_2);
-  EOF
+datasource "instances_with_tags" do
+  request do
+    auth $rs
+    scheme "https"
+    host rs_cm_host
+    path "/api/tags/by_tag"
+    header "X-Api-Version", "1.5"
+    query "resource_type", "instances"
+    query "tags[]", $param_schedules
+    query "match_all", "true"
+  end
+  result do
+    field "href",   val(item,'self.href')
+    field "id",     val(item,'resource_uid')
+    field "name",   val(item,'name')
+    field "state",  val(item,'state')
+    field "cloud",  val(item,'cloud')
+  end
 end
 
 escalation "handle_instances" do
@@ -683,11 +703,11 @@ escalation "handle_instances" do
     { end }
     EOS
   end
-  run "run_scan", data, $param_schedule, $param_exclude_tag, $timezone_override,$param_action
+  run "run_scan", data, $param_schedules, $param_exclude_tag, $timezone_override,$param_action
 end
 
 policy "schedule_instances_policy" do
-  validate $instances do
+  validate $instances_with_tags do
     template <<-EOS
     Instances
     The following instances are unattached:
@@ -702,7 +722,7 @@ policy "schedule_instances_policy" do
   end
 end
 
-define run_scan($data,$param_schedule, $scheduler_tags_exclude, $timezone_override,$param_action) do
+define run_scan($data,$param_schedules, $scheduler_tags_exclude, $timezone_override,$param_action) do
   $debug_mode="true"
   $scheduler_dry_mode='true'
 
@@ -727,7 +747,7 @@ define run_scan($data,$param_schedule, $scheduler_tags_exclude, $timezone_overri
   $instances_started = []
   $instances_stopped = []
 
-  if $ss_schedule_name == 'ALL'
+  if $param_schedules == 'ALL'
     call get_ss_schedules() retrieve $ss_schedules
   else
     $ss_schedules = [$ss_schedule_name]
@@ -765,21 +785,22 @@ define run_scan($data,$param_schedule, $scheduler_tags_exclude, $timezone_overri
         end
 
         # only instances tagged with a schedule are candidates for either a stop or start action
-        $search_tags = [join(['instance:schedule=', $ss_schedule])]
+        # $search_tags = [join(['instance:schedule=', $ss_schedule])]
+        #
+        # $by_tag_params = {
+        #   match_all: 'true',
+        #   resource_type: 'instances',
+        #   tags: $search_tags
+        # }
 
-        $by_tag_params = {
-          match_all: 'true',
-          resource_type: 'instances',
-          tags: $search_tags
-        }
+        # $tagged_resources = rs_cm.tags.by_tag($by_tag_params)
+        # call debug_audit_log('$tagged_resources', to_json($tagged_resources))
 
-        $tagged_resources = rs_cm.tags.by_tag($by_tag_params)
-        call debug_audit_log('$tagged_resources', to_json($tagged_resources))
-
-        if type($tagged_resources[0][0]) == 'object'
-          call audit_log(to_s(size($tagged_resources[0][0]['links'])) + ' candidate instance(s) found matching ' + to_s($search_tags), to_s($tagged_resources))
-          foreach $tagged_resource in $tagged_resources[0][0]['links'] do
-            $instance_href = $tagged_resource['href']
+        #if type($tagged_resources[0][0]) == 'object'
+        #  call audit_log(to_s(size($tagged_resources[0][0]['links'])) + ' candidate instance(s) found matching ' + to_s($search_tags), to_s($tagged_resources))
+          #foreach $tagged_resource in $tagged_resources[0][0]['links'] do
+          foreach $instance in $data do
+            $instance_href = $instance['href']
             $resource_tags = rs_cm.tags.by_resource(resource_hrefs: [$instance_href])
 
             $instance_tags = first(first($resource_tags))['tags']
@@ -847,9 +868,9 @@ define run_scan($data,$param_schedule, $scheduler_tags_exclude, $timezone_overri
               call audit_log('> ' + @instance.name + ' is excluded by tag', to_s(@instance))
             end #if excluded
           end #for each tagged_resource
-        else  #if tagged instances found
-          call audit_log('No instances found with tags matching ' + to_s($search_tags), to_s($results))
-        end #if tagged instances found
+        #else  #if tagged instances found
+        #  call audit_log('No instances found with tags matching ' + to_s($search_tags), to_s($results))
+        #end #if tagged instances found
       end #if schedule
   end  #end foreach ss_schedule
 
