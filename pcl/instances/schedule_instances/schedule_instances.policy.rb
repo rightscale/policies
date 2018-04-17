@@ -680,13 +680,13 @@ datasource "instances_with_tags" do
     query "tags[]", $param_schedules
     query "match_all", "true"
   end
-  result do
-    field "href",   val(item,'self.href')
-    field "id",     val(item,'resource_uid')
-    field "name",   val(item,'name')
-    field "state",  val(item,'state')
-    field "cloud",  val(item,'cloud')
-  end
+end
+datasource "instances" do
+  field "href",   val($instances_with_tags,'self.href')
+  field "id",     val($instances_with_tags,'resource_uid')
+  field "name",   val($instances_with_tags,'name')
+  field "state",  val($instances_with_tags,'state')
+  field "cloud",  val($instances_with_tags,'cloud')
 end
 
 escalation "handle_instances" do
@@ -707,7 +707,7 @@ escalation "handle_instances" do
 end
 
 policy "schedule_instances_policy" do
-  validate $instances_with_tags do
+  validate $instances do
     template <<-EOS
     Instances
     The following instances are unattached:
