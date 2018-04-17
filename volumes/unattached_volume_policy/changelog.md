@@ -7,3 +7,6 @@ v1.0
 v1.1 
 - Added csv file with email
 - Added Auto Terminate of the CAT once completed task.  
+
+v1.2
+- Added permission declaration.
