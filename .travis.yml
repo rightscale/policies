@@ -9,7 +9,7 @@ stages:
 
 before_install:
   - mkdir -p ~/.ssh
-  - echo $SSH_KEY_RO > ~/.ssh/id_rsa
+  - echo $SSH_KEY_RO | base64 -D -o ~/.ssh/id_rsa
   - chmod 600 ~/.ssh/id_rsa
 
 before_script: bundle install
