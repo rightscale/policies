@@ -1,5 +1,11 @@
-permission do
-  # TBD
+name "RightSize Policy Template"
+rs_pt_ver 20180301
+short_description "A policy that resizes instances based on monitoring metrics"
+long_description "Version: 0.1"
+
+permission "instance" do
+  actions "rs_cm.index", "rs_cm.show", "rs_cm.data"
+  resources "rs_cm.instances", "rs_cm.monitoring_metrics"
 end
 
 parameter "max_memory_percent" do
@@ -31,9 +37,9 @@ end
 
 # produces an array of objects [{ "average_mem"=>44, "id"=>"123bc", "type"=>"m1.small" }]
 
-data_source "instance_metrics" do
-  auth $rs
+datasource "instance_metrics" do
   request do
+    auth $rs
     host rs_cm_host
     path join([@instances.href, "monitoring_metrics", $monitoring_slug, "data"], "/")
     query "start", -300
@@ -87,24 +93,24 @@ end
 # end
 
 escalation "upsize" do
-  template <<-EOS
+  email $escalate_to do
+    body_template <<-EOS
   { range data }
   instance {$.id} of type {$.type} is using more than {$max_memory_percent}% memory and will be upgraded.
   {- end }
   EOS
-  email $escalate_to
+  end
   run "right_size_instance", true, data["href"]
 end
 
 escalation "downsize" do
-  template "instance {data.id} of type {data.type} is using less than {$min_memory_percent}% memory and will be downgraded."
-  email $escalate_to
+  email $escalate_to do
+    subject_template "instance {data.id} of type {data.type} is using less than {$min_memory_percent}% memory and will be downgraded."
+  end
   run "right_size_instance", false, data["href"]
 end
 
 # RCL definition that can be used in escalations
 define right_size_instance($up, $instance_href) do
    @instance = rs_cm.get(href: $instance_href)
-   # ...
 end
-
