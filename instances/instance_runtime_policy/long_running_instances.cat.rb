@@ -3,9 +3,10 @@ rs_ca_ver 20160622
 short_description "![RS Policy](https://goo.gl/RAcMcU =64x64)\n
 This automated policy CAT will find instances that have been running longer than a specified time, send alerts, and optionally delete them."
 long_description "Version: 1.1"
+import "mailer"
 import "sys_log"
 
-#Copyright 2017 RightScale
+#Copyright 2017, 2018 RightScale
 #
 #Licensed under the Apache License, Version 2.0 (the "License");
 #you may not use this file except in compliance with the License.
@@ -30,7 +31,6 @@ import "sys_log"
 # User inputs    #
 ##################
 
-
 parameter "param_days_old" do
   category "Instance"
   label "Include instances with minimum days running of"
@@ -51,6 +51,14 @@ parameter "param_email" do
   type "string"
 end
 
+parameter "param_run_once" do
+  category "Run Once"
+  label "If set to true the cloud app will terminate itself after completion.  Do not use for scheduling."
+  type "string"
+  default "false"
+  allowed_values "true","false"
+end
+
 operation "launch" do
   description "Find long running instances"
   definition "launch"
@@ -61,14 +69,22 @@ end
 # Definitions    #
 ##################
 
-define launch($param_email,$param_action,$param_days_old) return $param_email,$param_action,$param_days_old do
+define launch($param_email,$param_action,$param_days_old,$param_run_once) return $param_email,$param_action,$param_days_old,$param_run_once do
         call find_long_running_instances($param_days_old) retrieve $send_email
         sleep(20)
-        if $send_email == "true"
-          call send_email_mailgun($param_email)
-        end
-end
+#        if $send_email == "true"
+#          call send_email_mailgun($param_email)
+	if $param_run_once == "true"
 
+          $time = now() + 30
+          rs_ss.scheduled_actions.create(
+           execution_id: @@execution.id,
+           action: "terminate",
+           first_occurrence: $time
+         )
+        end
+        
+end
 
 define find_long_running_instances($param_days_old) return $send_email do
   #`pending`, `booting`, `operational`, `stranded`, `stranded in booting`, `running`
@@ -77,13 +93,21 @@ define find_long_running_instances($param_days_old) return $send_email do
   @all_instances = @all_instances + rs_cm.instances.index(filter:["state==pending"])
   @all_instances = @all_instances + rs_cm.instances.index(filter:["state==stranded"])
   @all_instances = @all_instances + rs_cm.instances.index(filter:["state==running"])
-
+ 
   #todo - add drop down to select if stopped instances should be included.
   @all_instances = @all_instances + rs_cm.instances.index(filter:["state==provisioned"])
   $list_of_instances=""
-  $table_start="<td align=%22left%22 valign=%22top%22>"
+  $table_start="<td align='left' valign='top'>"
   $table_end="</td>"
-
+  call find_account_name() retrieve $account_name
+    
+  $endpoint = "http://policies.services.rightscale.com"
+  $from = "policy-cat@services.rightscale.com"  
+  $subject = "["+ to_s(gsub($account_name, "&","-")) +"] Long Running Instances Report for > " + $param_days_old + " Day(s)"
+  $to = $param_email
+  $columns = ["Instance Name","Type","State","Cloud","Days Old","Link"]
+  call mailer.create_csv_with_columns($endpoint,$columns) retrieve $filename
+   
   #/60/60/24
   $curr_time = now()
   call find_shard() retrieve $shard_number
@@ -114,7 +138,7 @@ define find_long_running_instances($param_days_old) return $send_email do
       $number_of_instance_found=$number_of_instance_found + 1
       $send_email = "true"
 
-      sub task_label: "retrieing access link", on_error: error_server_link() do
+      sub task_label: "retrieving access link", on_error: error_server_link() do
         call get_server_access_link(@instance.href, $shard_number, $account_id) retrieve $server_access_link_root
       end
 
@@ -154,6 +178,8 @@ define find_long_running_instances($param_days_old) return $send_email do
 
       $instance_table = "<tr>" + $table_start + to_s($instance_name) + $table_end + $table_start + to_s($instance_type) + $table_end + $table_start + to_s($instance_state) + $table_end + $table_start + to_s($cloud_name) + $table_end + $table_start + to_s($display_days_old) + $table_end + $table_start + to_s($server_access_link_root) + $table_end + "</tr>"
       insert($list_of_instances, -1, $instance_table)
+	  	    
+	  call mailer.update_csv_with_rows($endpoint,$filename,[to_s($instance_name), to_s($instance_type),to_s($instance_state), to_s($cloud_name),to_s($display_days_old),to_s($server_access_link_root)]) retrieve $filename
     end
   end
 
@@ -166,26 +192,26 @@ define find_long_running_instances($param_days_old) return $send_email do
   end
   call sys_log.detail("rs_email_msg:" + $email_msg)
 
-  $header="\<\!DOCTYPE html PUBLIC \"-\/\/W3C\/\/DTD XHTML 1.0 Transitional\/\/EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\"\>
+  $header='\<\!DOCTYPE html PUBLIC \"-\/\/W3C\/\/DTD XHTML 1.0 Transitional\/\/EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\"\>
     <html xmlns=\"http:\/\/www.w3.org\/1999\/xhtml\">
         <head>
-            <meta http-equiv=%22Content-Type%22 content=%22text/html; charset=UTF-8%22 />
-            <a href=%22//www.rightscale.com%22>
-<img src=%22https://assets.rightscale.com/6d1cee0ec0ca7140cd8701ef7e7dceb18a91ba20/web/images/logo.png%22 alt=%22RightScale Logo%22 width=%22200px%22 />
+            <meta http-equiv="Content-Type" content=:text/html; charset=UTF-8" />
+            <a href="//www.rightscale.com">
+<img src="https://assets.rightscale.com/6d1cee0ec0ca7140cd8701ef7e7dceb18a91ba20/web/images/logo.png" alt="RightScale Logo" width=%22200px" />
 </a>
             <style></style>
         </head>
         <body>
-          <table border=%220%22 cellpadding=%220%22 cellspacing=%220%22 height=%22100%%22 width=%22100%%22 id=%22bodyTable%22>
+          <table border="0" cellpadding="0" cellspacing=%220" height="100%" width="100%" id="bodyTable">
               <tr>
-                  <td align=%22left%22 valign=%22top%22>
-                      <table border=%220%22 cellpadding=%2220%22 cellspacing=%220%22 width=%22100%%22 id=%22emailContainer%22>
+                  <td align="left" valign="top">
+                      <table border="0" cellpadding="20" cellspacing="0" width="100%" id="emailContainer">
                           <tr>
-                              <td align=%22left%22 valign=%22top%22>
-                                  <table border=%220%22 cellpadding=%2220%22 cellspacing=%220%22 width=%22100%%22 id=%22emailHeader%22>
+                              <td align="left" valign="top">
+                                  <table border="0"cellpadding="20" cellspacing="0" width="100%" id="emailHeader">
                                       <tr>
-                                          <td align=%22left%22 valign=%22top%22>
-                                             " + $email_msg + "
+                                          <td align="left" valign="top">
+                                             ' + $email_msg + '
                                           </td>
 
                                       </tr>
@@ -193,36 +219,38 @@ define find_long_running_instances($param_days_old) return $send_email do
                               </td>
                           </tr>
                           <tr>
-                              <td align=%22left%22 valign=%22top%22>
-                                  <table border=%220%22 cellpadding=%2210%22 cellspacing=%220%22 width=%22100%%22 id=%22emailBody%22>
+                              <td align="left" valign="top">
+                                  <table border="0" cellpadding="10" cellspacing="0" width="100%" id="emailBody">
                                       <tr>
-                                          <td align=%22left%22 valign=%22top%22>
+                                          <td align="left" valign="top">
                                               Instance Name
                                           </td>
-                                          <td align=%22left%22 valign=%22top%22>
+                                          <td align="left" valign="top">
                                               Type
                                           </td>
-                                          <td align=%22left%22 valign=%22top%22>
+                                          <td align="left" valign="top">
                                               State
                                           </td>
-                                          <td align=%22left%22 valign=%22top%22>
+                                          <td align"left" valign="top">
                                               Cloud
                                           </td>
-                                          <td align=%22left%22 valign=%22top%22>
+                                          <td align="left" valign="top">
                                               Days Old
                                           </td>
-                                          <td align=%22left%22 valign=%22top%22>
+                                          <td align="left" valign="top">
                                               Link
                                           </td>
                                       </tr>
-                                      "
+                                      '
 
 
 
-  $footer="</tr></table></td></tr><tr><td align=%22left%22 valign=%22top%22><table border=%220%22 cellpadding=%2220%22 cellspacing=%220%22 width=%22100%%22 id=%22emailFooter%22><tr><td align=%22left%22 valign=%22top%22>
+  $footer='</tr></table></td></tr><tr><td align="left" valign="top"><table border="0" cellpadding="20" cellspacing="0" width="100%" id="emailFooter"><tr><td align="left" valign="top">
           This report was automatically generated by a policy template Instance Runtime Policy your organization has defined in RightScale.
-      </td></tr></table></td></tr></table></td></tr></table></body></html>"
-  $$email_body = $header + $list_of_instances + $footer
+      </td></tr></table></td></tr></table></td></tr></table></body></html>'
+
+  $email_body = $header + $list_of_instances + $footer
+  call mailer.send_html_email($endpoint, $to, $from, $subject, $email_body, $filename, "html") retrieve $response  
 end
 
 define handle_error() do
@@ -230,24 +258,6 @@ define handle_error() do
   #$$error_msg = $_error["message"]
   $$error_msg = " failed to terminate"
   $_error_behavior = "skip"
-end
-
-define send_email_mailgun($to) do
-  call start_debugging()
-  $mailgun_endpoint = "http://smtp.services.rightscale.com/v3/services.rightscale.com/messages"
-  call find_account_name() retrieve $account_name
-  $to = gsub($to,"@","%40")
-  $subject = "Long Running Instances Report"
-  $text = "You have the following long running instances"
-  $post_body="from=policy-cat%40services.rightscale.com&to=" + $to + "&subject=[" + to_s(gsub($account_name, "&","-")) + "] Instance+Policy+Report&html=" + $$email_body
-  call sys_log.detail("RS_POST_BODY:" + $post_body)
-
-  $$response = http_post(
-   url: $mailgun_endpoint,
-   headers: { "content-type": "application/x-www-form-urlencoded"},
-   body: $post_body
-  )
-  call stop_debugging()
 end
 
 define get_server_access_link($instance_href, $shard, $account_number) return $server_access_link_root do
