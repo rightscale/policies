@@ -28,9 +28,10 @@ currently stopped between 7am and 11pm on any weekday.  The time in the schedule
 users timezone.  You can override the timezone with the Timezone Override parameter.
 
 **Parameters**
+
 | Name | Description |
-|------------|-------------|
-| Schedule | One or more Self-Service Schedules separated by comma.  |
+|------|-------------|
+| Schedule | One or more Self-Service Schedules separated by comma. |
 | Timezone Override | Select the timezone to override the users timezone |
 | Action | The action to take on the instances found.  Stop or Stop and Start |
 | Exclude Tags | Comma separated list of tags to exclude from action. |
