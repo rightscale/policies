@@ -1,4 +1,4 @@
-***Schedule Instances Policy***
+**Schedule Instances Policy**
 
 **What it does**
 
