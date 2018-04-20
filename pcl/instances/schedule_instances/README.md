@@ -1,4 +1,4 @@
-*Schedule Instances Policy*
+***Schedule Instances Policy***
 
 **What it does**
 
@@ -37,6 +37,6 @@ users timezone.  You can override the timezone with the Timezone Override parame
 | Exclude Tags | Comma separated list of tags to exclude from action. |
 | Email Addresses| Comma separated list of email addresses to notify of actions taken.|
 
-*Cost*
+**Cost**
 
 This policy CAT does not launch any instances, and so does not incur any cloud costs.
