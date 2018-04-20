@@ -2,8 +2,11 @@ name 'Schedule Instances Policy'
 rs_pt_ver 20180301
 type "policy"
 short_description "![RS Policy](https://goo.gl/RAcMcU =64x64)\n
-This automated policy CAT will Stop and Start instances"
+This automated policy will Stop and Start instances"
 long_description "Version: 1.0"
+
+category "Operational"
+severity "low"
 
 permission "perm_instances" do
   label     "List, stop and start instances"
