@@ -13,7 +13,8 @@ end
 
 parameter "param_schedule" do
   type "string"
-  label "Schedule to use"
+  label "Schedule"
+  description "The Self Service Schedule(s)"
   default "All"
 end
 parameter 'timezone_override' do
@@ -618,18 +619,21 @@ end
 
 parameter "param_action" do
   type "string"
-  label "Stop and Start the instance or only Stop"
+  label "Action"
+  description "Stop and Start the instance or only Stop"
   allowed_values "Start and Stop", "Stop"
 end
 
 parameter "param_exclude_tag" do
   type "string"
-  label "instance tag used to filter instances that are excluded from policy"
+  label "Exclude Tags"
+  description "instance tag used to filter instances that are excluded from policy"
 end
 
 parameter "param_escalate_to" do
   type "string"
-  label "Email address to send escalation emails to"
+  label "Email addresses"
+  description "Email addresses to send escalation emails to"
 end
 
 auth "rs", type: "rightscale"

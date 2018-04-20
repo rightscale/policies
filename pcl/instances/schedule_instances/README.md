@@ -24,8 +24,17 @@ On the desired instance(s), add the tag:
 
 The Policy will poll the RightScale Cloud Management API frequently, stopping
 any instances running after 11pm or on weekends; and start instances that are
-currently stopped between 7am and 11pm on any weekday.
+currently stopped between 7am and 11pm on any weekday.  The time in the schedule is based on the
+users timezone.  You can override the timezone with the Timezone Override parameter.
 
+**Parameters**
+| Name | Description |
+|------------|-------------|
+| Schedule | One or more Self-Service Schedules separated by comma.  |
+| Timezone Override | Select the timezone to override the users timezone |
+| Action | The action to take on the instances found.  Stop or Stop and Start |
+| Exclude Tags | Comma separated list of tags to exclude from action. |
+| Email Addresses| Comma separated list of email addresses to notify of actions taken.|
 
 Cost
 
