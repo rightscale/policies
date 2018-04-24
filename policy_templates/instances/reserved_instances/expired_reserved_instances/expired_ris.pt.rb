@@ -37,7 +37,8 @@ end
 
 policy "ri_expiration" do
   validate $reservations do
-    template <<-EOS
+    summary_template "RI"
+    detail_template <<-EOS
 { range data }
 * Account: { $.account_name }({ $.account_id })
 * Region: {$.region}
@@ -50,7 +51,7 @@ policy "ri_expiration" do
 EOS
 
     escalate $alert
-    check lt(sub(to_d(data["end_time"]), now), prod($heads_up_days, 24*3600))
-	end
+    check lt(dec(to_d(data), now), prod($heads_up_days, 24*3600))
+  end
 end
 
