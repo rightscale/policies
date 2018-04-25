@@ -139,14 +139,14 @@ define tag_checker() return $bad_instances do
   $advanced_tag_keys = {}
   $advanced_tags = {}
   $delete_days = 0
-  # retrieve tags on current deployment
+  # retrieve tags on current deployment  
   # don't think this deployment has any tags we need, as it's the cloudapp  - EG
   call get_tags_for_resource(@@deployment) retrieve $tags_on_deployment
-
+  
   sub on_error: skip do
   call sys_log(@@execution.name, 'Tag Checker Status: Started')
   end
-
+  
   $href_tag = map $current_tag in $tags_on_deployment return $tag do
     if $current_tag =~ "(tagchecker:tag_key)"
       $tag_key = last(split($current_tag,"="))
@@ -169,45 +169,45 @@ define tag_checker() return $bad_instances do
   foreach $key in keys($advanced_tag_keys) do
     $param_tag_keys_array << $key
   end
-
+  
   sub on_error: skip do
   call sys_log(@@execution.name, join(["Tag Checker Tag Key Array:", $param_tag_keys_array]) )
   end
   # for testing.  change the deployment_href to one that includes a few servers
   # to test with.  uncomment code and comment the concurrent block below it.
-   $deployment_href =  '/api/deployments/378563001' # replace with your deployment here
-   @instances = rs_cm.instances.get(filter: ["state==operational","deployment_href=="+$deployment_href])
-   $operational_instances_hrefs = to_object(@instances)["hrefs"]
-   @volumes = rs_cm.volumes.get(filter: ["deployment_href=="+$deployment_href])
-   $volume_hrefs = []#to_object(@volumes)["hrefs"]
-   $instances_hrefs = $operational_instances_hrefs + $volume_hrefs
+  #  $deployment_href =  '/api/deployments/378563001' # replace with your deployment here
+  #  @instances = rs_cm.instances.get(filter: ["state==operational","deployment_href=="+$deployment_href])
+  #  $operational_instances_hrefs = to_object(@instances)["hrefs"]
+  #  @volumes = rs_cm.volumes.get(filter: ["deployment_href=="+$deployment_href])
+  #  $volume_hrefs = to_object(@volumes)["hrefs"]
+  #  $instances_hrefs = $operational_instances_hrefs + $volume_hrefs
 
-  # concurrent return $operational_instances_hrefs, $provisioned_instances_hrefs, $running_instances_hrefs, $volume_hrefs do
-  #   sub do
-  #     @instances_operational = rs_cm.instances.get(filter: ["state==operational"])
-  #     $operational_instances_hrefs = to_object(@instances_operational)["hrefs"]
-  #     call sys_log("Operational Instances:", join(["Operational Instances:", $operational_instances_hrefs]) )
-  #   end
-  #   sub do
-  #     @instances_provisioned = rs_cm.instances.get(filter: ["state==provisioned"])
-  #     $provisioned_instances_hrefs = to_object(@instances_provisioned)["hrefs"]
-  #     call sys_log("Provisioned Instances:", join(["Provisioned Instances:", $provisioned_instances_hrefs]) )
-  #   end
-  #   sub do
-  #     @instances_running = rs_cm.instances.get(filter: ["state==running"])
-  #     $running_instances_hrefs = to_object(@instances_running)["hrefs"]
-  #     call sys_log("Running Instances:", join(["Running Instances:", $running_instances_hrefs]) )
-  #   end
-  #   sub do
-  #     @volumes = rs_cm.volumes.get()
-  #     $volume_hrefs = to_object(@volumes)["hrefs"]
-  #     call sys_log("Volumes: ",join(["Volumes: ", $volume_hrefs]) )
-  #   end
-  # end
+  concurrent return $operational_instances_hrefs, $provisioned_instances_hrefs, $running_instances_hrefs, $volume_hrefs do
+    sub do
+      @instances_operational = rs_cm.instances.get(filter: ["state==operational"])
+      $operational_instances_hrefs = to_object(@instances_operational)["hrefs"]
+      call sys_log("Operational Instances:", join(["Operational Instances:", $operational_instances_hrefs]) )
+    end
+    sub do
+      @instances_provisioned = rs_cm.instances.get(filter: ["state==provisioned"])
+      $provisioned_instances_hrefs = to_object(@instances_provisioned)["hrefs"]
+      call sys_log("Provisioned Instances:", join(["Provisioned Instances:", $provisioned_instances_hrefs]) )
+    end
+    sub do
+      @instances_running = rs_cm.instances.get(filter: ["state==running"])
+      $running_instances_hrefs = to_object(@instances_running)["hrefs"]
+      call sys_log("Running Instances:", join(["Running Instances:", $running_instances_hrefs]) )
+    end
+    sub do
+      @volumes = rs_cm.volumes.get()
+      $volume_hrefs = to_object(@volumes)["hrefs"]
+      call sys_log("Volumes: ",join(["Volumes: ", $volume_hrefs]) )
+    end
+  end
 
 
   task_label('Concatenating resource hrefs into array')
-  #$instances_hrefs = $operational_instances_hrefs + $provisioned_instances_hrefs + $running_instances_hrefs + $volume_hrefs
+  $instances_hrefs = $operational_instances_hrefs + $provisioned_instances_hrefs + $running_instances_hrefs + $volume_hrefs
 
 
 
@@ -387,7 +387,7 @@ define send_tags_alert_email($tags,$to) do
   $$list_of_instances=""
   foreach $resource in unique(keys($$bad_instances_array)) do
     task_label('Processing resource '+$resource)
-
+    
     $$resource_error = 'false'
     @resource = rs_cm.servers.empty()
 
@@ -440,7 +440,7 @@ define send_tags_alert_email($tags,$to) do
       call sys_log(@@execution.name, join(["Processing the following resource:", @resource.href]) )
       end
 
-      if @resource.created_at == null
+      if @resource.created_at == null 
         $resource_date = 'unknown'
       else
         $resource_date = strftime(to_d(@resource.created_at),"%Y-%m-%d")
