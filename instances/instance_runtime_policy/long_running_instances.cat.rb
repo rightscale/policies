@@ -126,10 +126,10 @@ define find_long_running_instances($param_days_old) return $send_email do
 
 
     #convert string to datetime to compare datetime
-    $instance_updated_at = to_d(@instance.updated_at)
+    $instance_created_at = to_d(@instance.created_at)
 
     #the difference between dates
-    $difference = $curr_time - $instance_updated_at
+    $difference = $curr_time - $instance_created_at
 
     #convert the difference to days
     $how_old = $difference /60/60/24
