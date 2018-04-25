@@ -83,7 +83,7 @@ define launch($param_email,$param_action,$param_days_old,$param_run_once) return
            first_occurrence: $time
          )
         end
-        
+
 end
 
 define find_long_running_instances($param_days_old) return $send_email do
@@ -93,21 +93,21 @@ define find_long_running_instances($param_days_old) return $send_email do
   @all_instances = @all_instances + rs_cm.instances.index(filter:["state==pending"])
   @all_instances = @all_instances + rs_cm.instances.index(filter:["state==stranded"])
   @all_instances = @all_instances + rs_cm.instances.index(filter:["state==running"])
- 
+
   #todo - add drop down to select if stopped instances should be included.
   @all_instances = @all_instances + rs_cm.instances.index(filter:["state==provisioned"])
   $list_of_instances=""
   $table_start="<td align='left' valign='top'>"
   $table_end="</td>"
   call find_account_name() retrieve $account_name
-    
+
   $endpoint = "http://policies.services.rightscale.com"
-  $from = "policy-cat@services.rightscale.com"  
+  $from = "policy-cat@services.rightscale.com"
   $subject = "["+ to_s(gsub($account_name, "&","-")) +"] Long Running Instances Report for > " + $param_days_old + " Day(s)"
   $to = $param_email
   $columns = ["Instance Name","Type","State","Cloud","Days Old","Link"]
   call mailer.create_csv_with_columns($endpoint,$columns) retrieve $filename
-   
+
   #/60/60/24
   $curr_time = now()
   call find_shard() retrieve $shard_number
@@ -124,6 +124,13 @@ define find_long_running_instances($param_days_old) return $send_email do
     $display_days_old = ""
     $server_access_link_root = ""
 
+    # do another get request to make sure the instance is still available
+    $resource = to_object(@instance)  
+    @resource = rs_cm.servers.empty()
+
+    sub on_error: skip do
+      @instance = rs_cm.get(href: $resource['href'])
+    end
 
     #convert string to datetime to compare datetime
     $instance_created_at = to_d(@instance.created_at)
@@ -178,7 +185,7 @@ define find_long_running_instances($param_days_old) return $send_email do
 
       $instance_table = "<tr>" + $table_start + to_s($instance_name) + $table_end + $table_start + to_s($instance_type) + $table_end + $table_start + to_s($instance_state) + $table_end + $table_start + to_s($cloud_name) + $table_end + $table_start + to_s($display_days_old) + $table_end + $table_start + to_s($server_access_link_root) + $table_end + "</tr>"
       insert($list_of_instances, -1, $instance_table)
-	  	    
+
 	  call mailer.update_csv_with_rows($endpoint,$filename,[to_s($instance_name), to_s($instance_type),to_s($instance_state), to_s($cloud_name),to_s($display_days_old),to_s($server_access_link_root)]) retrieve $filename
     end
   end
@@ -250,7 +257,7 @@ define find_long_running_instances($param_days_old) return $send_email do
       </td></tr></table></td></tr></table></td></tr></table></body></html>'
 
   $email_body = $header + $list_of_instances + $footer
-  call mailer.send_html_email($endpoint, $to, $from, $subject, $email_body, $filename, "html") retrieve $response  
+  call mailer.send_html_email($endpoint, $to, $from, $subject, $email_body, $filename, "html") retrieve $response
 end
 
 define handle_error() do
