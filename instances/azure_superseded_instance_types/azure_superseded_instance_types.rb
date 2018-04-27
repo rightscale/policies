@@ -166,10 +166,16 @@ define check_instances($instance_type_mapping, $exclusion_tag, $schedule_tag_nam
     if any?($disallowed_types, $instance["properties"]["hardwareProfile"]["vmSize"])
       call sys_log.detail($instance["name"] + " has a disallowed Instance Type!")
       # Exclude instances
-      if any?($exclusion_tag_value, $instance["tags"][$exclusion_tag_key[0]])
-        # Do nothing
-        call sys_log.detail($instance["name"] + " has the exclusion tag.  Skipping..")
+      if $instance["tags"] != null
+        if any?($exclusion_tag_value, $instance["tags"][$exclusion_tag_key[0]])
+          # Do nothing
+          call sys_log.detail($instance["name"] + " has the exclusion tag.  Skipping..")
+        else
+          $target_instances << $instance
+          call sys_log.detail($instance["name"] + " does NOT have the exclusion tag.  Adding to targets..")
+        end
       else
+        # No tags on instance
         $target_instances << $instance
         call sys_log.detail($instance["name"] + " does NOT have the exclusion tag.  Adding to targets..")
       end
@@ -185,39 +191,53 @@ define check_instances($instance_type_mapping, $exclusion_tag, $schedule_tag_nam
 
   # Check for Schedule tag
   foreach $instance in $target_instances do
-    if $instance["tags"][$schedule_tag_namespace] != null
-      # Validate Schedule tag value
-      if $instance["tags"][$schedule_tag_namespace] =~ /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/
+    if $instance["tags"] != null
+      if $instance["tags"][$schedule_tag_namespace] != null
+        # Validate Schedule tag value
+        if $instance["tags"][$schedule_tag_namespace] =~ /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/
 
-        call sys_log.detail($instance["name"] + " has a valid schedule tag")
-        # Call schedule_resize()
-        call schedule_resize($instance, $instance_type_mapping, $schedule_tag_namespace) retrieve @scheduled_action
-        if size(@scheduled_action) == 1
-          $scheduled = "scheduled"
-          call sys_log.detail($instance["name"] + " scheduled for resize")
+          call sys_log.detail($instance["name"] + " has a valid schedule tag")
+          # Call schedule_resize()
+          call schedule_resize($instance, $instance_type_mapping, $schedule_tag_namespace) retrieve @scheduled_action
+          if size(@scheduled_action) == 1
+            $scheduled = "scheduled"
+            call sys_log.detail($instance["name"] + " scheduled for resize")
+          else
+            $scheduled = "failed to schedule"
+            call sys_log.detail($instance["name"] + " FAILED to schedule for resize")
+          end
+
+          call mailer.update_csv_with_rows($mailer_endpoint, $filename, [$instance["name"],$instance["location"],$instance["properties"]["hardwareProfile"]["vmSize"],$instance["id"],$scheduled]) retrieve $filename
+
+          $instance_table = "<tr>" + $table_start + $instance["name"] + $table_end + $table_start + $instance["location"] + $table_end + $table_start + $instance["properties"]["hardwareProfile"]["vmSize"] + $table_end + $table_start + $instance["id"] + $table_end + $table_start + $scheduled + $table_end + "</tr>"
+          insert($list_of_instances, -1, $instance_table)
+
         else
-          $scheduled = "failed to schedule"
-          call sys_log.detail($instance["name"] + " FAILED to schedule for resize")
+          # Invalid Schedule Tag
+          $scheduled = "invalid schedule tag"
+          call sys_log.detail($instance["name"] + " has an INVALID schedule tag")
+
+          call mailer.update_csv_with_rows($mailer_endpoint, $filename, [$instance["name"],$instance["location"],$instance["properties"]["hardwareProfile"]["vmSize"],$instance["id"],$scheduled]) retrieve $filename
+
+          $instance_table = "<tr>" + $table_start + $instance["name"] + $table_end + $table_start + $instance["location"] + $table_end + $table_start + $instance["properties"]["hardwareProfile"]["vmSize"] + $table_end + $table_start + $instance["id"] + $table_end + $table_start + $scheduled + $table_end + "</tr>"
+          insert($list_of_instances, -1, $instance_table)
+
         end
-
-        call mailer.update_csv_with_rows($mailer_endpoint, $filename, [$instance["name"],$instance["location"],$instance["properties"]["hardwareProfile"]["vmSize"],$instance["id"],$scheduled]) retrieve $filename
-
-        $instance_table = "<tr>" + $table_start + $instance["name"] + $table_end + $table_start + $instance["location"] + $table_end + $table_start + $instance["properties"]["hardwareProfile"]["vmSize"] + $table_end + $table_start + $instance["id"] + $table_end + $table_start + $scheduled + $table_end + "</tr>"
-        insert($list_of_instances, -1, $instance_table)
-
       else
-        # Invalid Schedule Tag
-        $scheduled = "invalid schedule tag"
-        call sys_log.detail($instance["name"] + " has an INVALID schedule tag")
+        # No Schedule Tag
+        $scheduled = "no schedule tag set"
+
+        call sys_log.detail($instance["name"] + " does NOT have a schedule tag")
 
         call mailer.update_csv_with_rows($mailer_endpoint, $filename, [$instance["name"],$instance["location"],$instance["properties"]["hardwareProfile"]["vmSize"],$instance["id"],$scheduled]) retrieve $filename
 
         $instance_table = "<tr>" + $table_start + $instance["name"] + $table_end + $table_start + $instance["location"] + $table_end + $table_start + $instance["properties"]["hardwareProfile"]["vmSize"] + $table_end + $table_start + $instance["id"] + $table_end + $table_start + $scheduled + $table_end + "</tr>"
-        insert($list_of_instances, -1, $instance_table)
+          insert($list_of_instances, -1, $instance_table)
 
       end
     else
-      # No Schedule Tag
+      # No instance tags
+
       $scheduled = "no schedule tag set"
 
       call sys_log.detail($instance["name"] + " does NOT have a schedule tag")
@@ -225,8 +245,7 @@ define check_instances($instance_type_mapping, $exclusion_tag, $schedule_tag_nam
       call mailer.update_csv_with_rows($mailer_endpoint, $filename, [$instance["name"],$instance["location"],$instance["properties"]["hardwareProfile"]["vmSize"],$instance["id"],$scheduled]) retrieve $filename
 
       $instance_table = "<tr>" + $table_start + $instance["name"] + $table_end + $table_start + $instance["location"] + $table_end + $table_start + $instance["properties"]["hardwareProfile"]["vmSize"] + $table_end + $table_start + $instance["id"] + $table_end + $table_start + $scheduled + $table_end + "</tr>"
-        insert($list_of_instances, -1, $instance_table)
-
+      insert($list_of_instances, -1, $instance_table)
     end
   end
 
