@@ -161,8 +161,6 @@ define check_instances($instance_type_mapping, $exclusion_tag, $schedule_tag_nam
   # Check vmSize on each instance against the disallowed instance types list
   $target_instances = []
   foreach $instance in $all_instances do
-    call sys_log.detail("Instance Type Analysis")
-    call sys_log.detail("Instance: " + to_s($instance))
     if any?($disallowed_types, $instance["properties"]["hardwareProfile"]["vmSize"])
       call sys_log.detail($instance["name"] + " has a disallowed Instance Type!")
       # Exclude instances
