@@ -438,7 +438,7 @@ define get_access_token() return $access_token do
 
   $tenant_id = cred("AZURE_TENANT_ID")
   $application_id = cred("AZURE_APPLICATION_ID")
-  $secret = cred("AZURE_APPLICATION_KEY")
+  call url_encode(cred("AZURE_APPLICATION_KEY")) retrieve $secret
 
   $body_string = "grant_type=client_credentials&resource=https://management.core.windows.net/&client_id="+$application_id+"&client_secret="+$secret
 
@@ -456,4 +456,27 @@ define get_access_token() return $access_token do
   $auth_response_body = $auth_response["body"]
   $access_token = $auth_response_body["access_token"]
 
+end
+
+define url_encode($string) return $encoded_string do
+  $encoded_string = $string
+  $encoded_string = gsub($encoded_string, " ", "%20")
+  $encoded_string = gsub($encoded_string, "!", "%21")
+  $encoded_string = gsub($encoded_string, "#", "%23")
+  $encoded_string = gsub($encoded_string, "$", "%24")
+  $encoded_string = gsub($encoded_string, "&", "%26")
+  $encoded_string = gsub($encoded_string, "'", "%27")
+  $encoded_string = gsub($encoded_string, "(", "%28")
+  $encoded_string = gsub($encoded_string, ")", "%29")
+  $encoded_string = gsub($encoded_string, "*", "%2A")
+  $encoded_string = gsub($encoded_string, "+", "%2B")
+  $encoded_string = gsub($encoded_string, ",", "%2C")
+  $encoded_string = gsub($encoded_string, "/", "%2F")
+  $encoded_string = gsub($encoded_string, ":", "%3A")
+  $encoded_string = gsub($encoded_string, ";", "%3B")
+  $encoded_string = gsub($encoded_string, "=", "%3D")
+  $encoded_string = gsub($encoded_string, "?", "%3F")
+  $encoded_string = gsub($encoded_string, "@", "%40")
+  $encoded_string = gsub($encoded_string, "[", "%5B")
+  $encoded_string = gsub($encoded_string, "]", "%5D")
 end
