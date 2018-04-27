@@ -28,6 +28,10 @@ Parameter notes:
 
 Note that if a Resize Schedule tag value is updated in Azure, the scheduled action in RightScale will not be automatically updated.  In order to accommodate this use case, manually execute the `clear_scheduled_actions` operation from the running CloudApp. At the next scheduled action for the `scan_instances` operation, all scheduled actions will be recreated based on the current Resize Schedule tag values.
 
+Required RightScale Credentials:
+  - AZURE_TENANT_ID
+  - AZURE_APPLICATION_ID
+  - AZURE_APPLICATION_KEY
 
 **Dependencies**
   - [sys_log](https://github.com/rightscale/rightscale-plugins/blob/master/libraries/sys_log.rb)

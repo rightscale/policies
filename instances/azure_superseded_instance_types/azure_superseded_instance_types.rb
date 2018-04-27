@@ -124,12 +124,35 @@ define check_instances($instance_type_mapping, $exclusion_tag, $schedule_tag_nam
   call sys_log.detail("First Pass Instances: " + to_s($all_instances))
 
   # While nextLink exists, execute nextLink GET
-  while $instances[0]["nextLink"] != null do
-    $instances = http_get( url: $instances[0]["nextLink"] )
-    foreach $instance in $instances[0]["value"] do
+  if $instances[0]["nextLink"] != null
+    $continue_search = 1
+  else
+    $continue_search = 0
+  end
+
+  while $continue_search == 1 do
+    $url = $instances[0]["nextLink"]
+    call get_access_token() retrieve $access_token
+    $response = http_get(
+      url: $url,
+      headers : {
+        "cache-control":"no-cache",
+        "content-type":"application/json",
+        "authorization": "Bearer " + $access_token
+      }
+    )
+
+    $instances = $response["body"]
+    foreach $instance in $instances["value"] do
       $all_instances << $instance
     end
     call sys_log.detail("Next Pass Instances: " + to_s($all_instances))
+
+    if $instances["nextLink"] != null
+      $continue_search = 1
+    else
+      $continue_search = 0
+    end
 
   end
 
@@ -409,4 +432,28 @@ define find_account_name() return $account_name do
   $acct_link = select($session_info[0]["links"], {rel: "account"})
   $acct_href = $acct_link[0]["href"]
   $account_name = rs_cm.get(href: $acct_href).name
+end
+
+define get_access_token() return $access_token do
+
+  $tenant_id = cred("AZURE_TENANT_ID")
+  $application_id = cred("AZURE_APPLICATION_ID")
+  $secret = cred("AZURE_APPLICATION_KEY")
+
+  $body_string = "grant_type=client_credentials&resource=https://management.core.windows.net/&client_id="+$application_id+"&client_secret="+$secret
+
+  $auth_response = http_post(
+    url: "https://login.microsoftonline.com/" + $tenant_id + "/oauth2/token?api-version=1.0",
+    headers : {
+      "cache-control":"no-cache",
+      "content-type":"application/x-www-form-urlencoded"
+     # "Content-Type":"application/json"
+
+    },
+    body:$body_string
+  )
+
+  $auth_response_body = $auth_response["body"]
+  $access_token = $auth_response_body["access_token"]
+
 end
