@@ -402,23 +402,25 @@ define resize_vm($vmname, $resource_group, $new_size) do
   @instance = rs_azure_compute.virtualmachine.show(resource_group: $resource_group, virtualMachineName: $vmname)
 
   $status = @instance.instance_view()
+  call sys_log.detail("VM Status Result: " + to_s($status))
   foreach $state in $status[0]["statuses"] do
     if $state["code"] =~ "PowerState"
-      $powerstate = $state["displayStatus"]
+      $$powerstate = $state["displayStatus"]
     end
   end
 
-  if $powerstate == "VM running"
+  call sys_log.detail("PowerState: " + to_s($$powerstate) )
+  if $$powerstate == "VM running"
     call sys_log.detail("Stopping VM..")
     @instance.stop()
   end
 
-  while $powerstate != "VM deallocated" do
+  while $$powerstate != "VM deallocated" do
     sleep(30)
     $status = @instance.instance_view()
     foreach $state in $status[0]["statuses"] do
       if $state["code"] =~ "PowerState"
-        $powerstate = $state["displayStatus"]
+        $$powerstate = $state["displayStatus"]
       end
     end
   end
