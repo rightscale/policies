@@ -182,35 +182,35 @@ define tag_checker() return $bad_instances do
   #  $volume_hrefs = to_object(@volumes)["hrefs"]
   #  $instances_hrefs = $operational_instances_hrefs + $volume_hrefs
 
-  concurrent return $operational_instances_hrefs, $provisioned_instances_hrefs, $running_instances_hrefs, $volume_hrefs do
+  concurrent return $operational_instances, $provisioned_instances, $running_instances, $volume do
     sub do
       @instances_operational = rs_cm.instances.get(filter: ["state==operational"])
-      $operational_instances_hrefs = to_object(@instances_operational)["hrefs"]
-      call sys_log("Operational Instances:", join(["Operational Instances:", $operational_instances_hrefs]) )
+      $operational_instances = to_object(@instances_operational)
+      call sys_log("Operational Instances:", join(["Operational Instances:", $operational_instances]) )
     end
     sub do
       @instances_provisioned = rs_cm.instances.get(filter: ["state==provisioned"])
-      $provisioned_instances_hrefs = to_object(@instances_provisioned)["hrefs"]
-      call sys_log("Provisioned Instances:", join(["Provisioned Instances:", $provisioned_instances_hrefs]) )
+      $provisioned_instances = to_object(@instances_provisioned)
+      call sys_log("Provisioned Instances:", join(["Provisioned Instances:", $provisioned_instances]) )
     end
     sub do
       @instances_running = rs_cm.instances.get(filter: ["state==running"])
-      $running_instances_hrefs = to_object(@instances_running)["hrefs"]
-      call sys_log("Running Instances:", join(["Running Instances:", $running_instances_hrefs]) )
+      $running_instances= to_object(@instances_running)
+      call sys_log("Running Instances:", join(["Running Instances:", $running_instances]) )
     end
     sub do
       @volumes = rs_cm.volumes.get()
-      $volume_hrefs = to_object(@volumes)["hrefs"]
-      call sys_log("Volumes: ",join(["Volumes: ", $volume_hrefs]) )
+      $volumes = to_object(@volumes)
+      call sys_log("Volumes: ",join(["Volumes: ", $volumes]) )
     end
   end
 
 
   task_label('Concatenating resource hrefs into array')
-  $all_resource_hrefs = $operational_instances_hrefs + $provisioned_instances_hrefs + $running_instances_hrefs + $volume_hrefs
+  $all_resources = $operational_instances + $provisioned_instances + $running_instances + $volume
 
   task_label('Getting all tags for all resources')
-  $results = rs_cm.tags.by_resource(resource_hrefs: $all_resource_hrefs)
+  $results = rs_cm.tags.by_resource(resource_hrefs: $all_resources['hrefs'])
   $results = first($results)
 
   $resources_with_tags = {}
@@ -238,14 +238,14 @@ define tag_checker() return $bad_instances do
         # Append tags to the array in $resources_with_tags
         $resources_with_tags[$href] = $resources_with_tags[$href] + $result["tags"]
       end
-     end
+  	 end
       # Increase counter
       $results_counter = $results_counter+1
     end
     ## We now have all instance hrefs in the account, and all resources that have tags [along with what tags]
-    ##  $all_resource_hrefs     Array of hrefs for every resource in the account
+    ##  $all_resources          all the resource objects
     ##  $resources_with_tags    Object containing all resource_hrefs with tags [resource_href is key]
-    call sys_log("$all_resource_hrefs",to_json($all_resource_hrefs))
+    call sys_log("$all_resource_hrefs",to_json($all_resources))
     call sys_log("$resources_with_tags",to_json($resources_with_tags))
 
 
@@ -257,25 +257,25 @@ define tag_checker() return $bad_instances do
   $$add_tags_hash = {}
   $$add_prefix_value = {}
   task_label('Concurrently checking resources for tags')
-  concurrent foreach $hrefs in $all_resource_hrefs do
-    task_label('Gettings tags for resource '+$hrefs)
-    #$instances_tags = rs_cm.tags.by_resource(resource_hrefs: [$hrefs])
-    if type($resources_with_tags[$hrefs]) == "array"
-      $tag_info_array = { "tags": $resources_with_tags[$hrefs] }
+  concurrent foreach $detail in $all_resources['details'] do
+    #get href from detail links
+    $href = select($detail['links'],{'rel': 'self' })[0]['href']
+    task_label('Gettings tags for resource '+$href)
+    if type($resources_with_tags[$href]) == "array"
+      $tag_info_array = { "tags": $resources_with_tags[$href] }
     else
       $tag_info_array = { "tags": [] }
     end
 
-    task_label('Retrieving '+$hrefs+' object')
-    @resource = rs_cm.get(href: $hrefs)
-    $resource = to_object(@resource)
-
+    task_label('Retrieving '+$href+' object')
+    $cloud_href = select($detail['links'],{'rel': 'cloud' })[0]['href']
+    @cloud = rs_cm.get(cloud_href)
     # resource must be an instance
     # resource must be a volume not AzureRM
     # resource must be a volume in AzureRM without volume_type
     # if the volume is in azureRM and not a Managed Disk then skip
     task_label('Checking resource type')
-    if $resource['type'] == 'instances' || ($resource['type'] == 'volumes' && @resource.cloud().name !~ /^AzureRM/) || ($resource['type'] == 'volumes' && @resource.cloud().name =~ /^AzureRM/ && any?(select($resource['details'][0]['links'],{rel: 'volume_type'})))
+    if $resource['type'] == 'instances' || ($resource['type'] == 'volumes' && @cloud.name !~ /^AzureRM/) || ($resource['type'] == 'volumes' && @cloud.name =~ /^AzureRM/ && any?(select($resource['details'][0]['links'],{rel: 'volume_type'})))
       # check for missing tags
       task_label('Checking Tag Key')
       call check_tag_key($tag_info_array,$param_tag_keys_array,$advanced_tags)
@@ -792,7 +792,7 @@ define remove_delete_date_tag() do
   $resources = first(first($resources))["links"]
   foreach $resource in $resources do
     if !contains?(unique(keys($$bad_instances_array)),[$resource['href']])
-        @resource = rs_cm.instances.get(href: $resource['href'])
+      	@resource = rs_cm.instances.get(href: $resource['href'])
         rs_cm.tags.multi_delete(resource_hrefs: [@resource.href],
         tags: ["rs_policy:delete_date="+tag_value(@resource,'rs_policy:delete_date')])
     end
