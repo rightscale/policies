@@ -182,25 +182,29 @@ define tag_checker() return $bad_instances do
   #  $volumes = to_object(@volumes)
   #  $all_resources = $operational_instances + $volumes
 
-  concurrent return $operational_instances, $provisioned_instances, $running_instances, $volume do
+  concurrent return $operational_instances, $provisioned_instances, $running_instances, $volumes,$operational_instances_hrefs,$provisioned_instances_hrefs, $running_instances_hrefs,$volumes_hrefs do
     sub do
       @instances_operational = rs_cm.instances.get(filter: ["state==operational"])
-      $operational_instances = to_object(@instances_operational)
+      $operational_instances = to_object(@instances_operational)['details']
+      $operational_instances_hrefs = to_object(@instances_operational)['hrefs']
       call sys_log("Operational Instances:", join(["Operational Instances:", $operational_instances]) )
     end
     sub do
       @instances_provisioned = rs_cm.instances.get(filter: ["state==provisioned"])
-      $provisioned_instances = to_object(@instances_provisioned)
+      $provisioned_instances = to_object(@instances_provisioned)['details']
+      $provisioned_instances_hrefs = to_object(@instances_provisioned)['hrefs']
       call sys_log("Provisioned Instances:", join(["Provisioned Instances:", $provisioned_instances]) )
     end
     sub do
       @instances_running = rs_cm.instances.get(filter: ["state==running"])
-      $running_instances= to_object(@instances_running)
+      $running_instances = to_object(@instances_running)['details']
+      $running_instances_hrefs = to_object(@instances_running)['hrefs']
       call sys_log("Running Instances:", join(["Running Instances:", $running_instances]) )
     end
     sub do
       @volumes = rs_cm.volumes.get()
-      $volumes = to_object(@volumes)
+      $volumes = to_object(@volumes)['details']
+      $volumes_hrefs = to_object(@volumes)['hrefs']
       call sys_log("Volumes: ",join(["Volumes: ", $volumes]) )
     end
   end
@@ -208,9 +212,10 @@ define tag_checker() return $bad_instances do
 
   task_label('Concatenating resource hrefs into array')
   $all_resources = $operational_instances + $provisioned_instances + $running_instances + $volumes
+  $all_resources_hrefs = $operational_instances_hrefs + $provisioned_instances_hrefs + $running_instances_hrefs + $volumes_hrefs
 
   task_label('Getting all tags for all resources')
-  $results = rs_cm.tags.by_resource(resource_hrefs: $all_resources['hrefs'])
+  $results = rs_cm.tags.by_resource(resource_hrefs: $all_resources_hrefs)
   $results = first($results)
 
   $resources_with_tags = {}
@@ -257,7 +262,7 @@ define tag_checker() return $bad_instances do
   $$add_tags_hash = {}
   $$add_prefix_value = {}
   task_label('Concurrently checking resources for tags')
-  concurrent foreach $detail in $all_resources['details'] do
+  concurrent foreach $detail in $all_resources do
     #get href from detail links
     $href = select($detail['links'],{'rel': 'self' })[0]['href']
     task_label('Gettings tags for resource '+$href)
