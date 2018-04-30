@@ -177,10 +177,10 @@ define tag_checker() return $bad_instances do
   # to test with.  uncomment code and comment the concurrent block below it.
   #  $deployment_href =  '/api/deployments/378563001' # replace with your deployment here
   #  @instances = rs_cm.instances.get(filter: ["state==operational","deployment_href=="+$deployment_href])
-  #  $operational_instances_hrefs = to_object(@instances)["hrefs"]
+  #  $operational_instances = to_object(@instances)
   #  @volumes = rs_cm.volumes.get(filter: ["deployment_href=="+$deployment_href])
-  #  $volume_hrefs = to_object(@volumes)["hrefs"]
-  #  $instances_hrefs = $operational_instances_hrefs + $volume_hrefs
+  #  $volumes = to_object(@volumes)
+  #  $all_resources = $operational_instances + $volumes
 
   concurrent return $operational_instances, $provisioned_instances, $running_instances, $volume do
     sub do
@@ -274,8 +274,9 @@ define tag_checker() return $bad_instances do
     # resource must be a volume not AzureRM
     # resource must be a volume in AzureRM without volume_type
     # if the volume is in azureRM and not a Managed Disk then skip
+    $type = $type = split($href,"/")[4]
     task_label('Checking resource type')
-    if $resource['type'] == 'instances' || ($resource['type'] == 'volumes' && @cloud.name !~ /^AzureRM/) || ($resource['type'] == 'volumes' && @cloud.name =~ /^AzureRM/ && any?(select($resource['details'][0]['links'],{rel: 'volume_type'})))
+    if $type == 'instances' || ($type == 'volumes' && @cloud.name !~ /^AzureRM/) || ($type == 'volumes' && @cloud.name =~ /^AzureRM/ && any?(select($details['links'],{rel: 'volume_type'})))
       # check for missing tags
       task_label('Checking Tag Key')
       call check_tag_key($tag_info_array,$param_tag_keys_array,$advanced_tags)
