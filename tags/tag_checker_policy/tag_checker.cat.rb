@@ -207,7 +207,7 @@ define tag_checker() return $bad_instances do
 
 
   task_label('Concatenating resource hrefs into array')
-  $all_resources = $operational_instances + $provisioned_instances + $running_instances + $volume
+  $all_resources = $operational_instances + $provisioned_instances + $running_instances + $volumes
 
   task_label('Getting all tags for all resources')
   $results = rs_cm.tags.by_resource(resource_hrefs: $all_resources['hrefs'])
@@ -269,7 +269,7 @@ define tag_checker() return $bad_instances do
 
     task_label('Retrieving '+$href+' object')
     $cloud_href = select($detail['links'],{'rel': 'cloud' })[0]['href']
-    @cloud = rs_cm.get(cloud_href)
+    @cloud = rs_cm.get(href: $cloud_href)
     # resource must be an instance
     # resource must be a volume not AzureRM
     # resource must be a volume in AzureRM without volume_type
