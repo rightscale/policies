@@ -139,14 +139,14 @@ define tag_checker() return $bad_instances do
   $advanced_tag_keys = {}
   $advanced_tags = {}
   $delete_days = 0
-  # retrieve tags on current deployment  
+  # retrieve tags on current deployment
   # don't think this deployment has any tags we need, as it's the cloudapp  - EG
   call get_tags_for_resource(@@deployment) retrieve $tags_on_deployment
-  
+
   sub on_error: skip do
   call sys_log(@@execution.name, 'Tag Checker Status: Started')
   end
-  
+
   $href_tag = map $current_tag in $tags_on_deployment return $tag do
     if $current_tag =~ "(tagchecker:tag_key)"
       $tag_key = last(split($current_tag,"="))
@@ -169,7 +169,7 @@ define tag_checker() return $bad_instances do
   foreach $key in keys($advanced_tag_keys) do
     $param_tag_keys_array << $key
   end
-  
+
   sub on_error: skip do
   call sys_log(@@execution.name, join(["Tag Checker Tag Key Array:", $param_tag_keys_array]) )
   end
@@ -207,7 +207,49 @@ define tag_checker() return $bad_instances do
 
 
   task_label('Concatenating resource hrefs into array')
-  $instances_hrefs = $operational_instances_hrefs + $provisioned_instances_hrefs + $running_instances_hrefs + $volume_hrefs
+  $all_resource_hrefs = $operational_instances_hrefs + $provisioned_instances_hrefs + $running_instances_hrefs + $volume_hrefs
+
+  task_label('Getting all tags for all resources')
+  $results = rs_cm.tags.by_resource(resource_hrefs: $all_resource_hrefs)
+  $results = first($results)
+
+  $resources_with_tags = {}
+  # Count the size of the array and setup a loop counter
+  $results_size = size($results)
+  $results_counter = 0
+  while $results_counter < $results_size  do
+    task_label('Processing result #'+$results_counter+'/'+$results_size)
+    $result = $results[$results_counter]
+    # We only care about results that have tags, skip any that don't have tags
+    if size($result["tags"]) > 0
+      ## Cleanup the tags results so it's just an array of strings
+      ##$$tags_array = []
+      ##foreach $tag in $result["tags"] do
+      ##  $$tags_array << $tag["name"]
+      ##end
+      # Loop through resources and append tags to the proper array in $resources_with_tags
+      foreach $resource in $result["links"] do
+        $href = $resource["href"]
+        task_label('Processing resource '+$href)
+        # Check if key exists in $resources_with_tags, create empty array if it doesn't
+        if type($resources_with_tags[$href]) != "array"
+         $resources_with_tags = $resources_with_tags + { $href:[] }
+        end
+        # Append tags to the array in $resources_with_tags
+        $resources_with_tags[$href] = $resources_with_tags[$href] + $result["tags"]
+      end
+     end
+      # Increase counter
+      $results_counter = $results_counter+1
+    end
+    ## We now have all instance hrefs in the account, and all resources that have tags [along with what tags]
+    ##  $all_resource_hrefs     Array of hrefs for every resource in the account
+    ##  $resources_with_tags    Object containing all resource_hrefs with tags [resource_href is key]
+    call sys_log("$all_resource_hrefs",to_json($all_resource_hrefs))
+    call sys_log("$resources_with_tags",to_json($resources_with_tags))
+
+
+
 
 
 
@@ -215,10 +257,14 @@ define tag_checker() return $bad_instances do
   $$add_tags_hash = {}
   $$add_prefix_value = {}
   task_label('Concurrently checking resources for tags')
-  concurrent foreach $hrefs in $instances_hrefs do
+  concurrent foreach $hrefs in $all_resource_hrefs do
     task_label('Gettings tags for resource '+$hrefs)
-    $instances_tags = rs_cm.tags.by_resource(resource_hrefs: [$hrefs])
-    $tag_info_array = $instances_tags[0]
+    #$instances_tags = rs_cm.tags.by_resource(resource_hrefs: [$hrefs])
+    if type($resources_with_tags[$hrefs]) == "array"
+      $tag_info_array = { "tags": $resources_with_tags[$hrefs] }
+    else
+      $tag_info_array = { "tags": [] }
+    end
 
     task_label('Retrieving '+$hrefs+' object')
     @resource = rs_cm.get(href: $hrefs)
@@ -387,7 +433,7 @@ define send_tags_alert_email($tags,$to) do
   $$list_of_instances=""
   foreach $resource in unique(keys($$bad_instances_array)) do
     task_label('Processing resource '+$resource)
-    
+
     $$resource_error = 'false'
     @resource = rs_cm.servers.empty()
 
@@ -440,7 +486,7 @@ define send_tags_alert_email($tags,$to) do
       call sys_log(@@execution.name, join(["Processing the following resource:", @resource.href]) )
       end
 
-      if @resource.created_at == null 
+      if @resource.created_at == null
         $resource_date = 'unknown'
       else
         $resource_date = strftime(to_d(@resource.created_at),"%Y-%m-%d")
@@ -746,7 +792,7 @@ define remove_delete_date_tag() do
   $resources = first(first($resources))["links"]
   foreach $resource in $resources do
     if !contains?(unique(keys($$bad_instances_array)),[$resource['href']])
-      	@resource = rs_cm.instances.get(href: $resource['href'])
+        @resource = rs_cm.instances.get(href: $resource['href'])
         rs_cm.tags.multi_delete(resource_hrefs: [@resource.href],
         tags: ["rs_policy:delete_date="+tag_value(@resource,'rs_policy:delete_date')])
     end
