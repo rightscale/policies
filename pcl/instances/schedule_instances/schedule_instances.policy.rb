@@ -714,8 +714,8 @@ escalation "handle_instances" do
 end
 
 policy "schedule_instances_policy" do
-  validate $instances do
-    template <<-EOS
+  summary_template "Schedule Instance Summary Summary"
+  detail_template <<-EOS 
     Instances
     The following instances are unattached:
     { range data }
