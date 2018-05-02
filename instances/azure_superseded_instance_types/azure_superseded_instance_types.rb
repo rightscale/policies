@@ -348,7 +348,12 @@ define schedule_resize($instance, $instance_type_mapping, $schedule_tag_namespac
     $resource_group = split($uid, "/")[4]
     $timezone = "UTC"
     $datetime = to_d($instance["tags"][$schedule_tag_namespace])
-    call create_resize_sa($name, $timezone, $datetime, $new_size, $resource_group) retrieve @scheduled_action
+    $now = now()
+    if $now > $datetime
+      # skip resize
+    else
+      call create_resize_sa($name, $timezone, $datetime, $new_size, $resource_group) retrieve @scheduled_action
+    end
   end
 end
 
