@@ -1,5 +1,9 @@
 Tag Checker Policy changelog
 
+v2.4
+----
+- Performance Improvements by reducing API calls
+
 v2.3
 ----
 - adding additional task_label and syslog output
