@@ -58,7 +58,7 @@ policy "ri_utilization" do
 EOS
 
     escalate $alert
-    check lt(data["utilization"]["utilization_percentage"],$param_utilization)
+    #check lt(data["utilization"]["utilization_percentage"],$param_utilization)
 	end
 end
 

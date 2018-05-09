@@ -50,7 +50,7 @@ policy "ri_expiration" do
 EOS
 
     escalate $alert
-    check lt(sub(to_d(data["end_time"]), now), prod($heads_up_days, 24*3600))
+    check lt(dec(to_d(val(data,"end_time"), now)), prod($heads_up_days, 24*3600))
 	end
 end
 
