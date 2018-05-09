@@ -28,12 +28,17 @@ datasource "reservations" do
   request do
     auth $rs
     host "optima.rightscale.com"
-    path join(["/reco/orgs", rs_org_id, "aws_reserved_instances"], "/")
+    path join(["/reco/orgs", rs_org_id, "aws_reserved_instances"])
   end
   result do
     encoding "json"
-    collect do
-      field "end_datetime", jmes_path(response,"{{end_datetime}}")
+    collect jmes_path(response,"[*]") do
+      field "end_datetime", jmes_path(col_item,"end_datetime")
+      field "account_name", jmes_path(col_item,"account_name")
+      field "account_id", jmes_path(col_item,"account_id")
+      field "region", jmes_path(col_item,"region")
+      field "instance_type", jmes_path(col_item,"instance_type")
+      field "instance_count", jmes_path(col_item,"instance_count")
     end
   end
 end
@@ -61,6 +66,6 @@ Reserved Instance Expiration
 EOS
 
     escalate $alert
-    check gt(dec(to_d(val(item, "end_datetime"), now), prod($heads_up_days, 24*3600)))
+    check gt(dec(to_d(val(item, "end_datetime"), now), prod($heads_up_days, 24*3600))
   end
 end

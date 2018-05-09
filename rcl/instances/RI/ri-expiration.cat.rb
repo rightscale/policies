@@ -48,6 +48,7 @@ define launch($param_email,$param_organization_account_number) return $arr_expir
     url: $url
   )
   $body = $response["body"]
+  $$body = $body
   $arr_expiring = []
   foreach $item in $body do
     $cancellation_datetime = strftime(to_d($item["cancellation_datetime"]), "%Y/%m/%d %H:%M:%S +0000")
