@@ -33,6 +33,10 @@ datasource "reservations" do
     host "optima.rightscale.com"
     path join(["/reco/orgs", rs_org_id, "aws_reserved_instances"], "/")
   end
+  result do
+    encoding "json"
+    field "utilization_percentage", jmes_path(response,"{{utilization/utillization_percentage}}")
+  end
 end
 
 escalation "alert" do
@@ -44,7 +48,8 @@ end
 
 policy "ri_utilization" do
   validate $reservations do
-    template <<-EOS
+    summary_template "Reserved Instance Utilization"
+    detail_template <<-EOS
 
 { range data }
 * Account: { $.account_name }({ $.account_id })
@@ -58,7 +63,7 @@ policy "ri_utilization" do
 EOS
 
     escalate $alert
-    #check lt(data["utilization"]["utilization_percentage"],$param_utilization)
-	end
+    check lt(val(data,"utilization_percentage"),$param_utilization)
+  end
 end
 
