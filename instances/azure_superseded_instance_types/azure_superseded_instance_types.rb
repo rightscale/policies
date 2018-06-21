@@ -117,11 +117,13 @@ define check_instances($instance_type_mapping, $exclusion_tag, $schedule_tag_nam
 
   # List all instances in subscription
   $all_instances = []
+  $audit_instance_names = []
   $instances = rs_azure_compute.virtualmachine.list_all()
   foreach $instance in $instances[0]["value"] do
     $all_instances << $instance
+    $audit_instance_names << $instance["name"]
   end
-  call sys_log.detail("First Pass Instances: " + to_s($all_instances))
+  call sys_log.detail("First Pass Instances: " + to_s($audit_instance_names))
 
   # While nextLink exists, execute nextLink GET
   if $instances[0]["nextLink"] != null
@@ -131,7 +133,12 @@ define check_instances($instance_type_mapping, $exclusion_tag, $schedule_tag_nam
   end
 
   while $continue_search == 1 do
-    $url = $instances[0]["nextLink"]
+    $audit_next_instance_names = []
+    if type($instances) == "array"
+      $url = $instances[0]["nextLink"]
+    else
+      $url = $instances["nextLink"]
+    end
     call get_access_token() retrieve $access_token
     $response = http_get(
       url: $url,
@@ -145,18 +152,22 @@ define check_instances($instance_type_mapping, $exclusion_tag, $schedule_tag_nam
     $instances = $response["body"]
     foreach $instance in $instances["value"] do
       $all_instances << $instance
+      $audit_next_instance_names << $instance["name"]
+      $audit_instance_names = $audit_instance_names + $audit_next_instance_names
     end
-    call sys_log.detail("Next Pass Instances: " + to_s($all_instances))
+    call sys_log.detail("Next Pass Instances: " + to_s($audit_next_instance_names))
 
     if $instances["nextLink"] != null
       $continue_search = 1
+      call sys_log.detail("Next Pass Instances: Continue search...")
     else
       $continue_search = 0
+      call sys_log.detail("Next Pass Instances: Complete")
     end
 
   end
 
-  call sys_log.detail("All Instances: " + to_s($all_instances))
+  call sys_log.detail("All Instances: " + to_s($audit_instance_names))
 
   # Check vmSize on each instance against the disallowed instance types list
   $target_instances = []
