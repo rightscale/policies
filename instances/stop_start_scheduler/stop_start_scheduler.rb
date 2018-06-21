@@ -18,7 +18,7 @@
 #
 
 
-name 'AV - Start/Stop Scheduler'
+name 'Start/Stop Scheduler'
 short_description "![RS Policy](https://goo.gl/RAcMcU =64x64)
 Starts or stops instances based on a given schedule."
 long_description "Version 1.2"
