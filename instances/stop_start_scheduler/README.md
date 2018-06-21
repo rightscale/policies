@@ -14,7 +14,7 @@ For an instance to be a candidate for scheduling actions managed by this CloudAp
 a tag matching the chosen *Schedule Name* parameter (`ss_schedule_name`) should exist on the instance.
 Both RightScale-managed servers and plain instances are supported (including all clouds).
 
-The tag value needs to match an existing schedule within the RightScale Self-Service Schedule manager.
+The tag value can be changed to support cloud based tags.  The tag value after the `=` needs to match an existing schedule within the RightScale Self-Service Schedule manager.
 The format of the tag is as follows:
 
     instance:schedule=<name of ss schedule>
