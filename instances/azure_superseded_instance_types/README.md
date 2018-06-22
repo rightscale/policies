@@ -19,7 +19,7 @@ Parameter notes:
     }
 ```
 
-- *Schedule Tag Namespace:* This parameter defines the Azure-native tag namespace used when determining when to schedule the resizing of the instance. **NOTE:** When setting the tag value in Azure, it must match the following format: `yyyy-mm-ddThh:mm`.  For example: `2018-01-01T14:30`.  All times should be set in UTC.
+- *Schedule Tag Namespace:* This parameter defines the Azure-native tag namespace used when determining when to schedule the resizing of the instance. **NOTE:** When setting the tag value in Azure, it must match the following format: `yyyy-mm-ddThh:mm:ss`.  For example: `2018-01-01T14:30:00`.  All times should be set in UTC.
 
 - *Exclusion Tag:* Azure-native tag namespace:value that identifies instances that should not appear in reports and should therefore not be considered for automated resizing. Example value:
 ```json

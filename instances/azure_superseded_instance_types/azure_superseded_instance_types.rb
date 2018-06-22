@@ -2,7 +2,7 @@ name 'Policy - Azure Resize Superseded Instance Types'
 rs_ca_ver 20161221
 short_description "![RS Policy](https://goo.gl/RAcMcU =64x64)\n
 Policy - Azure Resize Superseded Instance Types"
-long_description "Version: 1.0"
+long_description "Version: 1.1"
 import "sys_log"
 import "mailer"
 import "plugins/rs_azure_compute"
