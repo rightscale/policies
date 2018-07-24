@@ -1,10 +1,10 @@
+**Note**: This repo is deprecated and will be removed in the future. Checkout the redesigned **[Policy Management](http://docs.rightscale.com/policies/)** experience with **[built-in Policies](http://docs.rightscale.com/policies/getting_started/policy_list.html)**. 
+
 # RightScale Policies
 
 ## Overview
 
 You can use Cloud Application Templates (CATs) in RightScale Self Service to automate policies. These are provided solely as samples under an Apache 2.0 open source license with no warranties.
-
-**Note**: Check out our redesigned **[Policy Management](http://docs.rightscale.com/policies/)** experience.
 
 ## How To Use These Policies
 
