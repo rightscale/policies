@@ -1,10 +1,10 @@
-name 'Audit Entries to Central Logger Pusher CAT'
+name 'Audit Entries Harvester CAT'
 rs_ca_ver 20160622
 short_description "![RS Policy](https://goo.gl/RAcMcU =64x64)\n
 This automated policy CAT collects audit entries and (will eventually) push them to a central logging system (e.g. Splunk)."
 long_description "Version: 0.1"
-import "mailer"
-import "sys_log"
+import "mailer"  # ONLY NEEDED FOR TESTING TO RECEIVE LIST OF AUDIT ENTRIES THAT WOULD BE PUSHED TO LOGGING SYSTEM
+import "sys_log" 
 import "pft/err_utilities"
 
 ##################
