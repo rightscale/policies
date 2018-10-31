@@ -43,8 +43,9 @@ end
 
 ### launch definitions ###
 define audit_entries_harvester($param_how_long_ago, $param_email) do
-  call get_audit_times($param_how_long_ago) retrieve $start_time, $end_time
   $audit_data = []
+  $audit_data_element = {}
+  call get_audit_times($param_how_long_ago) retrieve $start_time, $end_time
   @audit_entries = rs_cm.audit_entries.index(limit: 1000, start_date: $start_time, end_date: $end_time)
   foreach @audit_entry in @audit_entries do
     $audit_summary = @audit_entry.summary
@@ -67,7 +68,7 @@ define audit_entries_harvester($param_how_long_ago, $param_email) do
         rightscript_name: "N/A",
         rightscript_duration: "N/A"
       }
-      
+            
       # If the auditee resource is gone by the time we try to get tin the info, so be it.
       sub on_error: skip do
         @auditee =  @audit_entry.auditee()
@@ -89,8 +90,8 @@ define audit_entries_harvester($param_how_long_ago, $param_email) do
               if $rightscript_name != "N/A"
                 $audit_data_element["rightscript_name"] = $rightscript_name
                 $audit_data_element["rightscript_duration"] = $rightscript_duration 
-                $audit_data << $audit_data_element
               end
+              $audit_data << $audit_data_element
             end
           end
         end
@@ -99,7 +100,7 @@ define audit_entries_harvester($param_how_long_ago, $param_email) do
       end
     end
   end
-  
+    
   # Call uploader
   call audit_entries_uploader($audit_data, $param_email)
   
