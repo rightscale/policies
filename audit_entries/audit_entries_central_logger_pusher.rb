@@ -53,13 +53,15 @@ define audit_entries_harvester($param_how_long_ago, $param_email) do
     call check_audit($audit_summary) retrieve $good_audit
     if $good_audit
       $audit_href = @audit_entry.href
-      $audit_user_email = @audit_entry.user_email
+      $audit_user_email = switch((@audit_entry.user_email != ""), @audit_entry.user_email, "N/A")
+      $audit_timestamp = @audit_entry.updated_at
       
       # Build the base audit detail hash
       $audit_data_element = { 
+        audit_timestamp: $audit_timestamp,
         audit_href: $audit_href, 
         audit_summary: $audit_summary, 
-        audit_user_email: $audit_user_email, 
+        audit_user_email: $audit_user_email,
         auditee_href: "N/A", 
         auditee_name: "N/A",
         rightscript_name: "N/A",
@@ -110,113 +112,30 @@ define audit_entries_uploader($audit_data, $param_email) do
   # Emailer placeholder
   # But eventually this will host the logic for sending the data to the central logging system.
 
-    #get account id to include in the email.
-    call find_account_name() retrieve $account_name
-    $endpoint = "http://policies.services.rightscale.com"
-    $from = "policy-cat@services.rightscale.com"
-    $subject = $account_name + " - Audit Entries Report"
-    $to = $param_email
-    $columns = ["Auditee Name", "Auditee HREF", "Audit Summary", "Audit HREF", "User", "RightScript Name", "RightScript Duration"]
-    call mailer.create_csv_with_columns($endpoint,$columns) retrieve $filename
-    $email_msg = "Audit Entries Found"
+  #get account id to include in the email.
+  call find_account_name() retrieve $account_name
+  $endpoint = "http://policies.services.rightscale.com"
+  $from = "policy-cat@services.rightscale.com"
+  $subject = $account_name + " - Audit Entries Report"
+  $to = $param_email
+  $columns = ["Audit Timestamp", "Auditee Name", "Auditee HREF", "Audit Summary", "Audit HREF", "User", "RightScript Name", "RightScript Duration"]
+  call mailer.create_csv_with_columns($endpoint,$columns) retrieve $filename
+  $email_msg = "Audit Entries Found"
 
+  foreach $audit_item in $audit_data do
+    $audit_timestamp = $audit_item["audit_timestamp"]
+    $auditee_name = $audit_item["auditee_name"]
+    $auditee_href = $audit_item["auditee_href"]
+    $audit_summary = $audit_item["audit_summary"]
+    $audit_href = $audit_item["audit_href"]
+    $audit_user = $audit_item["audit_user_email"]
+    $audit_rightscript_name = $audit_item["rightscript_name"]
+    $audit_rightscript_duration = $audit_item["rightscript_duration"]
 
-    $header='\<\!DOCTYPE html PUBLIC \"-\/\/W3C\/\/DTD XHTML 1.0 Transitional\/\/EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\"\>
-    <html xmlns=\"http:\/\/www.w3.org\/1999\/xhtml\">
-        <head>
-            <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-            <a href="//www.rightscale.com">
-<img src="https://assets.rightscale.com/6d1cee0ec0ca7140cd8701ef7e7dceb18a91ba20/web/images/logo.png" alt="RightScale Logo" width="200px" />
-</a>
-            <style></style>
-        </head>
-        <body>
-          <table border="0" cellpadding="0" cellspacing="0" height="100%" width="100%" id="bodyTable">
-              <tr>
-                  <td align="left" valign="top">
-                      <table border="0" cellpadding="20" cellspacing="0" width="100%" id="emailContainer">
-                          <tr>
-                              <td align="left" valign="top">
-                                  <table border="0" cellpadding="20" cellspacing="0" width="100%" id="emailHeader">
-                                      <tr>
-                                          <td align="left" valign="top">
-                                             ' + $email_msg + '
-                                          </td>
+    call mailer.update_csv_with_rows($endpoint,$filename,[$audit_timestamp, $auditee_name, $auditee_href,$audit_summary, $audit_href,$audit_user,$audit_rightscript_name,$audit_rightscript_duration]) retrieve $filename
+  end
 
-                                      </tr>
-                                  </table>
-                              </td>
-                          </tr>
-                          <tr>
-                              <td align="left" valign="top">
-                                  <table border="0" cellpadding="10" cellspacing="0" width="100%" id="emailBody">
-                                      <tr>
-                                          <td align="left" valign="top">
-                                              Auditee Name
-                                          </td>
-                                          <td align="left" valign="top">
-                                              Auditee HREF
-                                          </td>
-                                          <td align="left" valign="top">
-                                              Audit Summary
-                                          </td>
-                                          <td align="left" valign="top">
-                                              Audit HREF
-                                          </td>
-                                          <td align="left" valign="top">
-                                              User
-                                          </td>
-                                          <td align="left" valign="top">
-                                              RightScript Name
-                                          </td>
-                                          <td align="left" valign="top">
-                                              RightScript Duration
-                                          </td>
-                                      </tr>
-                                      '
-      $list_of_audits=""
-      $table_start='<td align="left" valign="top">'
-      $table_end="</td>"
-
-      foreach $audit_item in $audit_data do
-        $auditee_name = $audit_item["auditee_name"]
-        $auditee_href = $audit_item["auditee_href"]
-        $audit_summary = $audit_item["audit_summary"]
-        $audit_href = $audit_item["audit_href"]
-        $audit_user = $audit_item["audit_user_email"]
-        $audit_rightscript_name = $audit_item["rightscript_name"]
-        $audit_rightscript_duration = $audit_item["rightscript_duration"]
-        
-        $audit_table = "<tr>" + $table_start + $auditee_name + $table_end + $table_start + $auditee_href + $table_end + $table_start + $audit_summary + $table_end + $table_start + $audit_href + $table_end + $table_start + $audit_user + $table_end + $table_start + $audit_rightscript_name + $table_end + $table_start + $audit_rightscript_duration + $table_end+"</tr>"
-        insert($list_of_audits, -1, $audit_table)
-		
-        call mailer.update_csv_with_rows($endpoint,$filename,[$auditee_name, $auditee_href,$audit_summary, $audit_href,$audit_user,$audit_rightscript_name,$audit_rightscript_duration]) retrieve $filename
-      end
-
-          $footer='</tr>
-      </table>
-  </td>
-</tr>
-<tr>
-  <td align="left" valign="top">
-      <table border="0" cellpadding="20" cellspacing="0" width="100%" id="emailFooter">
-          <tr>
-              <td align="left" valign="top">
-                  This report was automatically generated by a policy template Audit Entry Harvester your organization has defined in RightScale.
-              </td>
-          </tr>
-      </table>
-  </td>
-</tr>
-</table>
-</td>
-</tr>
-</table>
-</body>
-</html>'
-
-  $email_body = $header + $list_of_audits + $footer
-  call mailer.send_html_email($endpoint, $to, $from, $subject, $email_body, $filename, "html") retrieve $response
+  call mailer.send_html_email($endpoint, $to, $from, $subject, $email_msg, $filename, "html") retrieve $response
 
   if $response['code'] != 200
     raise 'Failed to send email report: ' + to_s($response)

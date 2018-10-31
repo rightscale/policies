@@ -1,0 +1,163 @@
+name "Upload RightScale Audit Entries to Central Logging System"
+rs_pt_ver 20180301
+type "policy"
+short_description "Gathers up RightScale Audit Entries for the account and pushes them to a central logging system. Currently supports: Splunk, Sumologic."
+long_description "Version: 0.1"
+severity "low"
+category "Operational"
+
+permission "general_permissions" do
+  resources "rs_cm.audit_entries"
+  actions   "rs_cm.index"
+end
+
+parameter "param_how_long_ago" do
+  label "Number of minutes in the past to go for audit entries"
+  type "number"
+  min_value 15
+  default 60
+end
+
+#parameter "param_central_logging_system_api_endpoint" do
+#  type "string"
+#  label "API Endpoint for Logging System"
+#end
+#
+#parameter "param_logging_system_credential_name" do
+#  type "string"
+#  label "Name of RightScale Credential Containing the Logging System API Token"
+#end
+
+
+# Script-based datasource that returns now time and (now - param_how_long_ago) minutes time
+# This is used later on to get audit entries between these two times.
+datasource "ds_timestamp_info" do
+  run_script $js_timestamp_info, $param_how_long_ago
+end
+script "js_timestamp_info", type: "javascript" do
+  parameters "param_how_long_ago"
+  result "timestamp_info"
+  code <<-EOS
+function get_formatted_date(timeobject) {
+        var year = timeobject.getFullYear()
+        var month = pad_zeros(timeobject.getMonth() + 1)
+        var date = pad_zeros(timeobject.getDate())
+        var hour = pad_zeros(timeobject.getHours())
+        var minutes = pad_zeros(timeobject.getMinutes())
+        var seconds = pad_zeros(timeobject.getSeconds())
+
+        var time = year + "/" + month + "/" + date + " " + hour + ":" + minutes + ":" + seconds + " +0000"
+        return time
+}
+
+function pad_zeros(thing) {
+        return(("0" + thing).slice(-2))
+}
+// This is the eventual output list of unattached volumes.
+var timestamp_info = [];
+
+// how long in the past to get audit entries in milliseconds
+var time_window_minutes = param_how_long_ago
+var time_window_ms = time_window_minutes * 1000 * 60  
+
+var now = new Date()
+var earlier = new Date(now.getTime() - time_window_ms)
+var end_time = get_formatted_date(now)
+var start_time = get_formatted_date(earlier)
+
+timestamp_info.push({
+  "start_time": start_time,
+  "end_time": end_time
+})
+EOS
+end
+
+# Auth object used to authenticate to the rightscale account to gather audit entries
+auth "auth_rs", type: "rightscale"
+
+# Audit entries data source
+# Gathers audit entries between the start and end times calculated above.
+datasource "ds_raw_audit_entries" do
+  iterate $ds_timestamp_info
+  request do
+    auth $auth_rs
+    verb "GET"
+    host rs_cm_host
+    path "/api/audit_entries"
+    header "X-Api-Version", "1.5"
+    query "limit", "1000"
+    query "start_date", val(iter_item, "start_time")
+    query "end_date", val(iter_item, "end_time")
+  end
+end
+
+# Some light processing of the audit entries to grab important bits
+datasource "ds_audit_entries" do
+  iterate $ds_raw_audit_entries
+  field "audit_href", href(iter_item)
+  field "summary", val(iter_item, "summary")
+  field "user_email", val(iter_item, "user_email")
+  field "auditee_href", jmes_path(iter_item, "links[?rel=='auditee'].href | [0]")
+end
+
+
+  
+  
+
+# Audit entry details
+#datasource "ds_audit_details" do
+#  iterate $ds_audit_entries
+#  request do
+#      run_script $js_audit_details, iter_item
+#  end
+#end
+
+###### DOESN'T WORK SINCE AUDIT ENTRY DETAIL API CALL JUST RETURNS A BLOCK OF TEXT WHICH IS NOT ABLE TO BE PROCESSED BY POLICY ENGINE #####
+##### TRIED A FEW VARIATIONS ON THE THEME. ####
+
+# Gather up the details for the audit entries
+# Script-based datasource that gathers up the audit entry details and checks if there is any duration info to share
+#datasource "ds_audit_entries_with_details" do
+#  run_script $js_audit_details, $ds_audit_entries, $ds_raw_audit_details
+#end
+script "js_audit_details", type: "javascript" do
+  parameters "audit_entry"
+  result "audit_entry_with_details"
+  code <<-EOS
+var audit_entry_with_details = {}
+audit_detail = {
+  auth: audit_entry["auth"],
+  host: audit_entry["host"],
+  path: audit_entry["href"]+ '/detail',
+  headers: {
+    "X-Api-Version": "1.5"
+  }
+}
+audit_entry_with_details = audit_entry
+audit_entry_with_details["detail"] = audit_detail
+EOS
+end
+
+policy "pol_audit_entries" do
+  validate_each $ds_audit_entries do
+  #validate_each $ds_audit_entries_with_details do
+	# Go through the unattached volumes that were found by the script-based datasource above
+	# and check if not older than specified number of days.
+	# If the check fails, it'll flag the volume
+	check eq(0,1)
+
+	#summary_template "{{ rs_project_name }} (Account ID: {{ rs_project_id }}): {{ len data }} Unattached Volumes Found"
+	summary_template "audit entries info"
+
+  detail_template <<-EOS
+| Audit Summary | Audit User Email | Auditee Href | Audit Href | Detail |
+| ------------- | ---------------- | ------------ | -----------| ------ |
+{{ range data -}}
+    | {{ .summary }} | {{ .user_email }} | {{ .auditee_href }} | {{ .audit_href }} | {{ .detail }} |
+{{ end -}}
+EOS
+
+  end
+end
+
+
