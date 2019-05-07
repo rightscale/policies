@@ -1,4 +1,4 @@
-# Copyright 2017 RightScale
+# Copyright 2018 RightScale
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,11 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+# v1.2
+# Fixed bug when instance name not assigned in Rightscale (IE: name is `-changeme-`) Causing cloudapp to fail
+# Adding option to put in tag that will support cloud tags.  'Explicitly include any instances with this tag (only one). After the `=` your schedule name will be used'
+#
+
 
 name 'Start/Stop Scheduler'
 short_description "![RS Policy](https://goo.gl/RAcMcU =64x64)
 Starts or stops instances based on a given schedule."
-long_description "Version 1.1"
+long_description "Version 1.2"
 rs_ca_ver 20161221
 
 parameter 'ss_schedule_name' do
@@ -24,6 +30,14 @@ parameter 'ss_schedule_name' do
   description "ALL to scan for all schedules, or enter a schedule name to scan for only the one schedule."
   type 'string'
   default "ALL"
+end
+
+parameter 'scheduler_tags_include' do
+  category 'Scheduler Policy'
+  label 'Tags Include'
+  description 'Explicitly include any instances with this tag (only one). After the `=` your schedule name will be used'
+  type 'list'
+  default 'instance:schedule='
 end
 
 parameter 'scheduler_tags_exclude' do
@@ -833,7 +847,7 @@ define send_report($start_count, $stop_count, $locked_count, $email_recipients, 
   end
 end
 
-define run_scan($ss_schedule_name, $scheduler_tags_exclude, $scheduler_dry_mode, $polling_frequency, $debug_mode, $timezone_override, $email_recipients) do
+define run_scan($ss_schedule_name, $scheduler_tags_include, $scheduler_tags_exclude, $scheduler_dry_mode, $polling_frequency, $debug_mode, $timezone_override, $email_recipients) do
 
   call audit_log('Instance Scheduler scan started', '')
 
@@ -892,9 +906,11 @@ define run_scan($ss_schedule_name, $scheduler_tags_exclude, $scheduler_dry_mode,
         else
           call audit_log($ss_schedule + ' schedule window is currently in-active: Instances may be stopped.', '')
         end
-
+        
         # only instances tagged with a schedule are candidates for either a stop or start action
-        $search_tags = [join(['instance:schedule=', $ss_schedule])]
+        
+        $search_tags = [join([$scheduler_tags_include, $ss_schedule])]
+#		$search_tags = [join(['instance:schedule=', $ss_schedule])]
 
         $by_tag_params = {
           match_all: 'true',
@@ -937,11 +953,15 @@ define run_scan($ss_schedule_name, $scheduler_tags_exclude, $scheduler_dry_mode,
               # 1. inside or outside schedule
               # 2. current operational state
               if (! $window_active)
-
+              $instance_name = @instance.name
+              if $instance_name == null
+               $instance_name = '-changeme-'
+              end
+			  
                 if (@instance.state =~ $stoppable)
                 # stop the instance
                   if $scheduler_dry_mode != 'true'
-                    call audit_log('> ' + @instance.name + ': Stopping ...', to_s(@instance))
+                    call audit_log('> ' + $instance_name + ': Stopping ...', to_s(@instance))
                     sub on_error: error_server_stop() do
                       if @instance.locked == false
                         @instance.stop()
@@ -950,30 +970,30 @@ define run_scan($ss_schedule_name, $scheduler_tags_exclude, $scheduler_dry_mode,
                       end
                     end
                     $stop_count = $stop_count + 1
-                    $instances_stopped << { href: @instance.href, name: @instance.name }
+                    $instances_stopped << { href: @instance.href, name: $instance_name }
                   else
-                    call audit_log('> Dry mode: Skipping stop of ' + @instance.name, to_s(@instance.href))
+                    call audit_log('> Dry mode: Skipping stop of ' + $instance_name, to_s(@instance.href))
                   end
                 else
-                  call audit_log('> ' + @instance.name + ': No action - Instance state is ' + to_s(@instance.state), '')
+                  call audit_log('> ' + $instance_name + ': No action - Instance state is ' + to_s(@instance.state), '')
                 end
               else
                 if (@instance.state =~ $startable)
                 # start the instance
                   if $scheduler_dry_mode != 'true'
-                    call audit_log('> ' + @instance.name + ': Starting ...', to_s(@instance))
+                    call audit_log('> ' + $instance_name + ': Starting ...', to_s(@instance))
                     @instance.start()
                     $start_count = $start_count + 1
-                    $instances_started << { href: @instance.href, name: @instance.name }
+                    $instances_started << { href: @instance.href, name: $instance_name }
                   else
-                    call audit_log('> Dry mode: Skipping start of ' + @instance.name, to_s(@instance))
+                    call audit_log('> Dry mode: Skipping start of ' + $instance_name, to_s(@instance))
                   end
                 else
-                  call audit_log('> ' + @instance.name + ': No action - Instance state is ' + to_s(@instance.state), '')
+                  call audit_log('> ' + $instance_name + ': No action - Instance state is ' + to_s(@instance.state), '')
                 end
               end  #if (! $window_active)
             else #if excluded
-              call audit_log('> ' + @instance.name + ' is excluded by tag', to_s(@instance))
+              call audit_log('> ' + $instance_name + ' is excluded by tag', to_s(@instance))
             end #if excluded
           end #for each tagged_resource
         else  #if tagged instances found
@@ -1031,7 +1051,7 @@ end
 ###
 # Launch Definition
 ###
-define launch_scheduler($ss_schedule_name, $scheduler_tags_exclude, $scheduler_dry_mode, $polling_frequency, $debug_mode, $timezone_override, $email_recipients) do
+define launch_scheduler($ss_schedule_name, $scheduler_tags_include, $scheduler_tags_exclude, $scheduler_dry_mode, $polling_frequency, $debug_mode, $timezone_override, $email_recipients) do
   call audit_log('Instance scheduler started for ' + $ss_schedule_name + ' schedule(s).', $ss_schedule_name)
 
   if size($timezone_override) > 0
@@ -1119,8 +1139,13 @@ define get_server_access_link($instance_href) return $server_access_link_root do
 define get_stopping_instance_state($href) return $state do
   $state = ""
   @instance = rs_cm.instance.empty()
+  
   sub on_error: skip do
     @instance = rs_cm.get(href: $href)
+    $instance_name = @instance.name
+    if $instance_name == null
+       $instance_name = '-changeme-'
+    end
     if (@instance.state =~ /^(running|operational|stranded)$/)
       if @instance.locked
         $state = "Unstoppable(locked)"
@@ -1131,5 +1156,5 @@ define get_stopping_instance_state($href) return $state do
       $state = "Stopped"
     end
   end
-  call audit_log('> ' + @instance.name + ': Stopping ...', to_s(@instance) + ", state: " + $state)
+  call audit_log('> ' + $instance_name + ': Stopping ...', to_s(@instance) + ", state: " + $state)
 end
